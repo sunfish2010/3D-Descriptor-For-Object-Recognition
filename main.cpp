@@ -1,8 +1,4 @@
-#include <pcl/visualization/cloud_viewer.h>
-#include <iostream>
-#include <pcl/io/io.h>
-#include <pcl/io/pcd_io.h>
-
+#include "main.hpp"
 int user_data;
 
 void
@@ -31,31 +27,44 @@ viewerPsycho (pcl::visualization::PCLVisualizer& viewer)
     user_data++;
 }
 
-int
-main ()
-{
-    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
-    pcl::io::loadPCDFile ("../pcd/milk_cartoon.pcd", *cloud);
+//int
+//main ()
+//{
+//    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
+//    pcl::io::loadPCDFile ("../pcd/milk_cartoon.pcd", *cloud);
+//
+//    pcl::visualization::CloudViewer viewer("Cloud Viewer");
+//
+//    //blocks until the cloud is actually rendered
+//    viewer.showCloud(cloud);
+//
+//    //use the following functions to get access to the underlying more advanced/powerful
+//    //PCLVisualizer
+//
+//    //This will only get called once
+//    viewer.runOnVisualizationThreadOnce (viewerOneOff);
+//
+//    //This will get called once per visualization iteration
+//    viewer.runOnVisualizationThread (viewerPsycho);
+//    while (!viewer.wasStopped ())
+//    {
+//        //you can also do cool processing here
+//        //FIXME: Note that this is running in a separate thread from viewerPsycho
+//        //and you should guard against race conditions yourself...
+//        user_data++;
+//    }
+//    return 0;
+//}
 
-    pcl::visualization::CloudViewer viewer("Cloud Viewer");
 
-    //blocks until the cloud is actually rendered
-    viewer.showCloud(cloud);
-
-    //use the following functions to get access to the underlying more advanced/powerful
-    //PCLVisualizer
-
-    //This will only get called once
-    viewer.runOnVisualizationThreadOnce (viewerOneOff);
-
-    //This will get called once per visualization iteration
-    viewer.runOnVisualizationThread (viewerPsycho);
-    while (!viewer.wasStopped ())
-    {
-        //you can also do cool processing here
-        //FIXME: Note that this is running in a separate thread from viewerPsycho
-        //and you should guard against race conditions yourself...
-        user_data++;
+int main(int argc, char* argv[]){
+    if (argc != 2){
+        cout << "Usage: [pc file]. Press Enter to exit" << endl;
+        getchar();
+        return 0;
     }
-    return 0;
+
+    string fn(argv[1]);
+    string ext = utilityCore
+
 }
