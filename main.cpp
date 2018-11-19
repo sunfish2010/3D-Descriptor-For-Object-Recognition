@@ -64,8 +64,14 @@ bool init(){
     viewer->setBackgroundColor(0, 0, 0);
 
 #if GPU
-    pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
-    viewer->addPointCloud(model, rgb, "model");
+    //pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
+    //
+    pcl::PointCloud<PointType>::Ptr off_scene_model (new pcl::PointCloud<PointType> ());
+    pcl::transformPointCloud (*model, *off_scene_model, Eigen::Vector3f (-1,0,0), Eigen::Quaternionf (1, 0, 0, 0));
+    pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(off_scene_model);
+    viewer->addPointCloud(off_scene_model, rgb, "model");
+    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
+    viewer->addPointCloud(scene, rgb, "scene");
 
     // compute normals
     pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
@@ -93,7 +99,7 @@ bool init(){
 //    KDTree tree(pts);
 
 
-    //viewer->addPointCloudNormals<PointType, pcl::Normal>(model, model_normals, 10, 0.05f, "model_normals");
+    viewer->addPointCloudNormals<PointType, pcl::Normal>(model, model_normals, 10, 0.05f, "model_normals");
 
     // scene
 //
