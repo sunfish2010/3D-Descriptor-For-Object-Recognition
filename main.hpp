@@ -9,7 +9,7 @@
 #include "util/utilityCore.hpp"
 #include <cuda_runtime.h>
 #include "src/detection.h"
-#include "src/kdtree.h"
+#include "src/kdtree.hpp"
 using namespace std;
 
 

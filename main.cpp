@@ -1,5 +1,6 @@
 #include "main.hpp"
-
+#include <pcl/filters/uniform_sampling.h>
+#include <pcl/common/common.h>
 
 int main(int argc, char* argv[]){
     if (argc < 3){
@@ -28,6 +29,7 @@ int main(int argc, char* argv[]){
 
     if (init()){
         mainLoop();
+        detectFree();
         return 0;
     }else{
         return -1;
@@ -60,8 +62,21 @@ bool init(){
     normal_est.setInputCloud(model);
     normal_est.compute(*model_normals);
 
-    auto pts = (*scene).points;
-    KDTree tree(pts);
+    pcl::UniformSampling<PointType> uniform_sampling;
+    pcl::PointCloud<PointType>::Ptr model_keypoints (new pcl::PointCloud<PointType> ());
+    uniform_sampling.setInputCloud (model);
+    uniform_sampling.setRadiusSearch (0.01f);
+    uniform_sampling.filter (*model_keypoints);
+    std::cout << "Model total points: " << model->size () << "; Selected Keypoints: " << model_keypoints->size () << std::endl;
+
+    Eigen::Vector4f min_p, max_p;
+    // Get the minimum and maximum dimensions
+    pcl::getMinMax3D<PointType>(*model, min_p, max_p);
+    std::cout << "The min for each dimension using pcl is " << min_p << std::endl;
+    detectionInit(model);
+
+//    auto pts = (*scene).points;
+//    KDTree tree(pts);
 
 
     //viewer->addPointCloudNormals<PointType, pcl::Normal>(model, model_normals, 10, 0.05f, "model_normals");
@@ -102,6 +117,7 @@ void mainLoop(){
 
         //display();
     }
+
 }
 
 void keyCallback(const pcl::visualization::KeyboardEvent & event, void *viewer_void){

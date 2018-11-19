@@ -1,4 +1,4 @@
-#include "kdtree.h"
+#include "kdtree.hpp"
 
 Node::Node():left(-1), right(-1), parent(-1),
              data(pcl::PointXYZRGB()), axis(0){}

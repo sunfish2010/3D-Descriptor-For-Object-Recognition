@@ -3,7 +3,7 @@ set(SOURCE_FILES
         "detection.cu"
         "detection.h"
         "kdtree.cpp"
-        "kdtree.h"
+        "kdtree.hpp"
         )
 
 cuda_add_library(src
