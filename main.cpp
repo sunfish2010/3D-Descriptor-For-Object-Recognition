@@ -1,70 +1,126 @@
 #include "main.hpp"
-int user_data;
-
-void
-viewerOneOff (pcl::visualization::PCLVisualizer& viewer)
-{
-    viewer.setBackgroundColor (1.0, 0.5, 1.0);
-    pcl::PointXYZ o;
-    o.x = 1.0;
-    o.y = 0;
-    o.z = 0;
-    viewer.addSphere (o, 0.25, "sphere", 0);
-    std::cout << "i only run once" << std::endl;
-
-}
-
-void
-viewerPsycho (pcl::visualization::PCLVisualizer& viewer)
-{
-    static unsigned count = 0;
-    std::stringstream ss;
-    ss << "Once per viewer loop: " << count++;
-    viewer.removeShape ("text", 0);
-    viewer.addText (ss.str(), 200, 300, "text", 0);
-
-    //FIXME: possible race condition here:
-    user_data++;
-}
-
-//int
-//main ()
-//{
-//    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
-//    pcl::io::loadPCDFile ("../pcd/milk_cartoon.pcd", *cloud);
-//
-//    pcl::visualization::CloudViewer viewer("Cloud Viewer");
-//
-//    //blocks until the cloud is actually rendered
-//    viewer.showCloud(cloud);
-//
-//    //use the following functions to get access to the underlying more advanced/powerful
-//    //PCLVisualizer
-//
-//    //This will only get called once
-//    viewer.runOnVisualizationThreadOnce (viewerOneOff);
-//
-//    //This will get called once per visualization iteration
-//    viewer.runOnVisualizationThread (viewerPsycho);
-//    while (!viewer.wasStopped ())
-//    {
-//        //you can also do cool processing here
-//        //FIXME: Note that this is running in a separate thread from viewerPsycho
-//        //and you should guard against race conditions yourself...
-//        user_data++;
-//    }
-//    return 0;
-//}
 
 
 int main(int argc, char* argv[]){
-    if (argc != 2){
-        cout << "Usage: [pc file]. Press Enter to exit" << endl;
+    if (argc < 3){
+        cout << "Usage: [model file] [scene file]. Press Enter to exit" << endl;
         getchar();
         return 0;
     }
 
-    string fn(argv[1]);
-    string ext = utilityCore
+    string mfn(argv[1]);
+    string sfn(argv[2]);
+    string m_ext = utilityCore::getFilePathExtension(mfn);
+    string s_ext = utilityCore::getFilePathExtension(sfn);
 
+
+    if (m_ext == "pcd" && s_ext == "pcd"){
+        if (pcl::io::loadPCDFile(mfn, *model) < 0){
+            cout << "Error loading model cloud " << endl;
+            return -1;
+        }
+        if (pcl::io::loadPCDFile(sfn, *scene) < 0){
+            cout << "Error loading scene cloud" << endl;
+            return -1;
+        }
+
+    }
+
+    if (init()){
+        mainLoop();
+        return 0;
+    }else{
+        return -1;
+    }
+
+}
+
+void runCUDA(){
+
+}
+
+bool init(){
+    cudaDeviceProp deviceProp;
+    int device_count = 0;
+    cudaGetDeviceCount(&device_count);
+    if (device_count < 0){
+        cout << "Error: GPU device not found " << endl;
+        return false;
+    }
+    viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer> (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+    // model
+
+    viewer->setBackgroundColor(0, 0, 0);
+    pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
+    viewer->addPointCloud(model, rgb, "model");
+
+    // compute normals
+    pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
+    normal_est.setKSearch(10);
+    normal_est.setInputCloud(model);
+    normal_est.compute(*model_normals);
+
+    auto pts = (*scene).points;
+    KDTree tree(pts);
+
+
+    //viewer->addPointCloudNormals<PointType, pcl::Normal>(model, model_normals, 10, 0.05f, "model_normals");
+
+    // scene
+//
+//    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType> (scene);
+//    viewer->addPointCloud(scene, rgb, "scene");
+
+
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "model");
+    //viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scene");
+    viewer->addCoordinateSystem(1.0);
+    viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
+    viewer->registerMouseCallback(mouseCallback, (void*) viewer.get());
+
+    // TODO:: Initialization for GPU
+
+
+    return true;
+}
+
+void mainLoop(){
+
+
+    // TODO:: Change visualization spin time laps
+    while(!viewer->wasStopped()){
+        viewer->spinOnce(100);
+        boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+
+//        pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
+//        normal_est.setKSearch(10);
+//        normal_est.setInputCloud(scene);
+//        normal_est.compute(*scene_normals);
+
+        // TODO :: run CUDA
+        runCUDA();
+
+        //display();
+    }
+}
+
+void keyCallback(const pcl::visualization::KeyboardEvent & event, void *viewer_void){
+    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = *static_cast<boost::shared_ptr<pcl::visualization::PCLVisualizer> *> (viewer_void);
+    if (event.getKeySym () == "k" && event.keyDown ())
+    {
+        std::cout << "k was pressed => toggle key points" << std::endl;
+
+        showKeyPoints = !showKeyPoints;
+    }
+}
+void mouseCallback(const pcl::visualization::MouseEvent &event, void *viewer_void){
+
+}
+
+void display(){
+    pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
+    viewer->updatePointCloud(model,rgb, "model");
+
+    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType> (scene);
+    viewer->updatePointCloud(scene, rgb, "scene");
 }
