@@ -17,7 +17,7 @@ list(APPEND CUDA_NVCC_FLAGS_RELEASE -O3 -DNDEBUG)
 list(APPEND CMAKE_EXE_LINKER_FLAGS "-lX11 -lXxf86vm -lXrandr -lXi")
 
 find_package(PCL 1.7 REQUIRED)
-find_package(Threads REQUIRED)
+#find_package(Threads REQUIRED)
 find_package(CUDA 8.0 REQUIRED)
 set(CUDA_ATTACH_VS_BUILD_RULE_TO_CUDA_FILE ON)
 set(CUDA_SEPARABLE_COMPILATION ON)
@@ -44,6 +44,7 @@ add_subdirectory(src)
 
 
 cuda_add_executable (${CMAKE_PROJECT_NAME} main.cpp main.hpp)
+#add_executable(${CMAKE_PROJECT_NAME} test.cpp)
 target_link_libraries (${CMAKE_PROJECT_NAME}
         ${PCL_LIBRARIES}
         util

@@ -36,3 +36,5 @@ void runCUDA();
 void keyCallback(const pcl::visualization::KeyboardEvent & event, void *viewer_void);
 void mouseCallback(const pcl::visualization::MouseEvent &event, void *viewer_void);
 void display();
+
+void detection_cpu();
