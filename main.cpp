@@ -4,6 +4,8 @@
 #include <pcl/features/shot_omp.h>
 #include <pcl/recognition/cg/geometric_consistency.h>
 #include <pcl/common/transforms.h>
+#include <pcl/features/normal_3d_omp.h>
+
 #define GPU 1
 
 int main(int argc, char* argv[]){
@@ -80,11 +82,11 @@ bool init(){
     normal_est.compute(*model_normals);
 
     pcl::UniformSampling<PointType> uniform_sampling;
-    pcl::PointCloud<PointType>::Ptr model_keypoints (new pcl::PointCloud<PointType> ());
+    pcl::PointCloud<PointType>::Ptr model_keypoints (new pcl::PointCloud<PointType>);
     uniform_sampling.setInputCloud (model);
     uniform_sampling.setRadiusSearch (0.01f);
     uniform_sampling.filter (*model_keypoints);
-    std::cout << "Model total points: " << model->size () << "; Selected Keypoints: " << model_keypoints->size () << std::endl;
+    std::cout << "Model total points: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
 
     Eigen::Vector4f min_p, max_p;
     // Get the minimum and maximum dimensions
