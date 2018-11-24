@@ -20,10 +20,10 @@ void detectionInit(const pcl::PointCloud<PointType >::ConstPtr model){
 }
 
 void detectFree(){
-    cudaFree(dev_ss_pc_model);
-    cudaFree(dev_ss_pc_scene);
-    cudaFree(dev_kp_model);
-    cudaFree(dev_kp_scene);
+//    cudaFree(dev_ss_pc_model);
+//    cudaFree(dev_ss_pc_scene);
+//    cudaFree(dev_kp_model);
+//    cudaFree(dev_kp_scene);
 
     dev_ss_pc_scene = NULL;
     dev_ss_pc_model = NULL;

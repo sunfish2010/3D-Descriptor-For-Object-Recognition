@@ -86,8 +86,9 @@ bool init(){
     uniform_sampling.setInputCloud (model);
     uniform_sampling.setRadiusSearch (0.01f);
     uniform_sampling.filter (*model_keypoints);
+    std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "Model total points: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
-
+    std::cout << "---------------------------------------------------------" << std::endl;
     Eigen::Vector4f min_p, max_p;
     // Get the minimum and maximum dimensions
     pcl::getMinMax3D<PointType>(*model, min_p, max_p);
