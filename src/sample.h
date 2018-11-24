@@ -19,10 +19,10 @@ typedef pcl::PointXYZRGB PointType;
 
 class UniformDownSample{
 public:
-    UniformDownSample(float radius);
+    explicit UniformDownSample(float radius);
     ~UniformDownSample();
     void setRadius(float radius);
-    void downSample(const pcl::PointCloud<PointType >::ConstPtr input);
+    //void downSample(const pcl::PointCloud<PointType >::ConstPtr input);
     void downSample(const pcl::PointCloud<PointType >::ConstPtr input, pcl::PointCloud<PointType>::Ptr output);
 
 private:
@@ -33,7 +33,7 @@ private:
     Eigen::Vector4f *dev_max;
     int *dev_grid_indices;
     int *dev_array_indices;
-    PointType *dev_coherent_pc;
+    PointType *dev_new_pc;
     int *dev_tmp;
     PointType *dev_pc;
 

@@ -10,11 +10,12 @@ static PointType *dev_kp_model = NULL;
 
 
 
-void detectionInit(const pcl::PointCloud<PointType >::ConstPtr model){
+void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
+        pcl::PointCloud<PointType >::Ptr model_keypoints){
 //    n_model =
     UniformDownSample filter = UniformDownSample(0.01);
-   // pcl::PointCloud<PointType>::Ptr model_ds(new pcl::PointCloud<PointType>);
-    filter.downSample(model);
+
+    filter.downSample(model, model_keypoints);
     std::cout<< "Valid " << std::endl;
 
 }

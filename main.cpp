@@ -7,6 +7,7 @@
 #include <pcl/features/normal_3d_omp.h>
 
 #define GPU 1
+#define VERBOSE 1
 
 int main(int argc, char* argv[]){
     if (argc < 3){
@@ -72,8 +73,8 @@ bool init(){
     pcl::transformPointCloud (*model, *off_scene_model, Eigen::Vector3f (-1,0,0), Eigen::Quaternionf (1, 0, 0, 0));
     pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(off_scene_model);
     viewer->addPointCloud(off_scene_model, rgb, "model");
-    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
-    viewer->addPointCloud(scene, rgb, "scene");
+    //rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
+    //viewer->addPointCloud(scene, rgb, "scene");
 
     // compute normals
     pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
@@ -86,23 +87,36 @@ bool init(){
     uniform_sampling.setInputCloud (model);
     uniform_sampling.setRadiusSearch (0.01f);
     uniform_sampling.filter (*model_keypoints);
+    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
+    viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
     std::cout << "---------------------------------------------------------" << std::endl;
-    std::cout << "Model total points: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
+    std::cout << "Model total points CPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
     Eigen::Vector4f min_p, max_p;
+
+#if VERBOSE
     // Get the minimum and maximum dimensions
     pcl::getMinMax3D<PointType>(*model, min_p, max_p);
     std::cout << "The min for each dimension using pcl is " << min_p << std::endl;
-    detectionInit(model);
+#endif
+//    (*model_keypoints).points.clear();
+//    detectionInit(model, model_keypoints);
+//    std::cout << "---------------------------------------------------------" << std::endl;
+//    std::cout << "Model total points GPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
+//    std::cout << "---------------------------------------------------------" << std::endl;
+//    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
+//    viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
+
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "model");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scene");
+
+//    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scene");
 #endif
 
 //    auto pts = (*scene).points;
 //    KDTree tree(pts);
 
 
-    viewer->addPointCloudNormals<PointType, pcl::Normal>(model, model_normals, 10, 0.05f, "model_normals");
+    //viewer->addPointCloudNormals<PointType, pcl::Normal>(model, model_normals, 10, 0.05f, "model_normals");
 
     // scene
 //
