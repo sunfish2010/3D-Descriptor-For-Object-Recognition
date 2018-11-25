@@ -173,7 +173,7 @@ void UniformDownSample::setRadius(float radius) {this->radius = radius;}
 void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr input,
         pcl::PointCloud<PointType>::Ptr output) {
     N = (int)(*input).size();
-    dim3 fullBlockPerGrid_points ((N + blockSize - 1)/blockSize);
+    dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
     cudaMalloc((void**) &dev_pc, N * sizeof(PointType));
     cudaMemcpy(dev_pc, &(*input).points[0], N * sizeof(PointType), cudaMemcpyHostToDevice);
     checkCUDAError("cudaMemcpy pc");
@@ -240,7 +240,7 @@ void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr i
 
     int * new_end = thrust::partition(thrust::device, dev_tmp, dev_tmp + N, isFirst());
 
-    int num_unique = new_end - dev_tmp;
+    int num_unique = static_cast<int>(new_end - dev_tmp);
 //
     std::vector<int>unique_indices(num_unique, 0);
     cudaMemcpy(&unique_indices[0], dev_tmp, num_unique  * sizeof(int), cudaMemcpyDeviceToHost);

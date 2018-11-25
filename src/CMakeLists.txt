@@ -4,8 +4,8 @@ set(SOURCE_FILES
         "detection.h"
         "sample.cu"
         "sample.h"
-        "descriptor.cu"
-        "descriptor.h"
+        "shot.cu"
+        "shot.h"
         "kdtree.cpp"
         "kdtree.hpp"
         )

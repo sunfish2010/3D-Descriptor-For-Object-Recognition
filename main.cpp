@@ -105,7 +105,7 @@ bool init(){
 
     (*model_keypoints).points.clear();
     t1 = std::chrono::high_resolution_clock::now();
-    detectionInit(model, model_keypoints);
+    detectionInit(model, model_keypoints, model_normals, model_descriptors);
     t2 = std::chrono::high_resolution_clock::now();
     duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
