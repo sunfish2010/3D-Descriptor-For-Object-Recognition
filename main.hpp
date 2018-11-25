@@ -10,6 +10,7 @@
 #include <cuda_runtime.h>
 #include "src/detection.h"
 #include "src/kdtree.hpp"
+#include <chrono>
 using namespace std;
 
 
@@ -21,6 +22,8 @@ pcl::PointCloud<pcl::Normal>::Ptr model_normals(new pcl::PointCloud<pcl::Normal>
 pcl::PointCloud<pcl::Normal>::Ptr scene_normals(new pcl::PointCloud<pcl::Normal>);
 pcl::PointCloud<pcl::SHOT352>::Ptr model_descriptors(new pcl::PointCloud<pcl::SHOT352>);
 pcl::PointCloud<pcl::SHOT352>::Ptr scene_descriptors(new pcl::PointCloud<pcl::SHOT352>);
+pcl::PointCloud<PointType>::Ptr model_keypoints (new pcl::PointCloud<PointType>);
+pcl::PointCloud<PointType>::Ptr scene_keypoints (new pcl::PointCloud<PointType>);
 
 // viewpoints
 int vp1(0);

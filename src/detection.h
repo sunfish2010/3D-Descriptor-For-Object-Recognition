@@ -1,11 +1,8 @@
 #pragma once
 
 #include "sample.h"
-
+#include "descriptor.h"
 #include <iostream>
-
-
-const int blockSize = 128;
 
 
 void detectionInit(pcl::PointCloud<PointType>::ConstPtr model,

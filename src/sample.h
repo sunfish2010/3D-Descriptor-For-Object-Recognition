@@ -3,19 +3,11 @@
 #include <cfloat>
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include <iostream>
-
-#include <boost/version.hpp>
-#include <boost/numeric/conversion/cast.hpp>
-#include <boost/algorithm/string.hpp>
-#include <boost/interprocess/sync/file_lock.hpp>
-
-#include <pcl/io/io.h>
-#include <pcl/io/pcd_io.h>
+#include "common.h"
 
 #include "checkCUDAError.h"
 
-typedef pcl::PointXYZRGB PointType;
+
 
 class UniformDownSample{
 public:

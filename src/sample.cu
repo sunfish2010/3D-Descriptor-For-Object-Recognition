@@ -256,7 +256,7 @@ void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr i
     (*output).width = static_cast<uint32_t>(num_unique);
     (*output).points.resize (static_cast<uint32_t>(num_unique));
 
-    for (auto & i : unique_indices) std::cout << i << std::endl;
+    //for (auto & i : unique_indices) std::cout << i << std::endl;
 
 
     std::vector<int>dist(N, 0);
@@ -271,7 +271,7 @@ void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr i
            return (dist[a] < dist[b]);
        });
 
-       std::cout << "min is " << indices[cell_start] << std::endl;
+       //std::cout << "min is " << indices[cell_start] << std::endl;
        (*output).points[i] = (*input).points[indices[cell_start]];
        cell_start = cell_end;
        cell_end = unique_indices[i];

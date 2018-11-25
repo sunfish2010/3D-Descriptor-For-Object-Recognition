@@ -16,7 +16,7 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
     UniformDownSample filter = UniformDownSample(0.01);
 
     filter.downSample(model, model_keypoints);
-    std::cout<< "Valid " << std::endl;
+
 
 }
 
