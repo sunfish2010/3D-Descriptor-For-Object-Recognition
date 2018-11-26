@@ -7,78 +7,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/random.h>
 #include <thrust/device_ptr.h>
-/*
- * Atomic functions for float
- * https://stackoverflow.com/questions/17399119/cant-we-use-atomic-operations-for-floating-point-variables-in-cuda
- */
-__device__ static float atomicMax(float* address, float val)
-{
-    int* address_as_i = (int*) address;
-    int old = *address_as_i, assumed;
-    do {
-        assumed = old;
-        old = ::atomicCAS(address_as_i, assumed,
-                          __float_as_int(::fmaxf(val, __int_as_float(assumed))));
-    } while (assumed != old);
-    return __int_as_float(old);
-}
-
-__device__ static float atomicMin(float* address, float val){
-    int* address_as_i = (int*) address;
-    int old = *address_as_i, assumed;
-    do {
-        assumed = old;
-        old = ::atomicCAS(address_as_i, assumed,
-                          __float_as_int(::fminf(val, __int_as_float(assumed))));
-    } while (assumed != old);
-    return __int_as_float(old);
-}
-
-
-
-__global__ void getMinMax(int N ,const PointType *pts_in, Eigen::Vector4f *min_pt, Eigen::Vector4f  *max_pt){
-    int index = threadIdx.x + (blockIdx.x * blockDim.x);
-    if (index < N){
-
-        PointType pt = pts_in[index] ;
-        if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
-            //float pt_x = pt.x, pt_y = pt.y, pt_z = pt.z;
-            atomicMin(&(*min_pt)[0], pt.x);
-            atomicMin(&(*min_pt)[1], pt.y);
-            atomicMin(&(*min_pt)[2], pt.z);
-            atomicMax(&(*max_pt)[0], pt.x);
-            atomicMax(&(*max_pt)[1], pt.y);
-            atomicMax(&(*max_pt)[2], pt.z);
-        }
-    }
-}
-
-
-__device__ int kernComputeIndices(Eigen::Vector4i pos, Eigen::Vector4i grid_res){
-    return pos[0] + pos[1] * grid_res[0] + pos[2] * grid_res[1] * grid_res[2];
-}
-
-__global__ void kernComputeIndices(int N, Eigen::Vector4i grid_res, Eigen::Vector4i grid_min,
-        Eigen::Vector4f inv_radius, PointType *pos, int *indices, int *grid_indices){
-    int index = threadIdx.x + (blockIdx.x *blockDim.x);
-    if (index < N){
-        PointType pt = pos[index] ;
-        if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
-            Eigen::Vector4i ijk(static_cast<int>(floor(pt.x * inv_radius[0])),
-                                static_cast<int>(floor(pt.y * inv_radius[1])), static_cast<int>(floor(pt.z * inv_radius[2])), 0);
-
-
-            Eigen::Vector4i offset = ijk - grid_min;
-//            printf("offset is %d, %d, %d \n",offset[0], offset[1], offset[2]);
-//            printf("grid res is %d, %d, %d \n", grid_res[0], grid_res[1], grid_res[2]);
-            grid_indices[index] = kernComputeIndices(offset, grid_res);
-//            printf("indice is %d \n", grid_indices[index] );
-            indices[index] = index;
-        }
-
-    }
-}
-
+#include "cudaGrid.h"
 
 //Copy index
 __global__ void isfirst_indices(int N, int *input, int *res) {
@@ -102,22 +31,6 @@ struct isFirst {
 };
 
 
-//__global__ void kernIdentifyCellStartEnd(int N, int *particleGridIndices,
-//                                         int *gridCellStartIndices, int *gridCellEndIndices) {
-//    // Identify the start point of each cell in the gridIndices array.
-//    // This is basically a parallel unrolling of a loop that goes
-//    // "this index doesn't match the one before it, must be a new cell!"
-//    int index = threadIdx.x + (blockIdx.x * blockDim.x);
-//    if (index >= N) return;
-//    // corner cases
-//    if (index == 0) gridCellStartIndices[particleGridIndices[index]] = index;
-//    else if (index == N - 1) gridCellEndIndices[particleGridIndices[index]] = index;
-//
-//    else if (particleGridIndices[index] != particleGridIndices[index + 1]){
-//        gridCellEndIndices[particleGridIndices[index]] = index;
-//        gridCellStartIndices[particleGridIndices[index + 1]] = index + 1;
-//    }
-//}
 __device__ float kernComputeDist(PointType pos, Eigen::Vector4i ijk){
     return (pos.x - ijk[0]) * (pos.x - ijk[0]) + (pos.y - ijk[1]) * (pos.y - ijk[1])
             + (pos.z - ijk[2]) * (pos.z - ijk[2]);
@@ -170,8 +83,15 @@ UniformDownSample::~UniformDownSample() {
 
 void UniformDownSample::setRadius(float radius) {this->radius = radius;}
 
-void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr input,
-        pcl::PointCloud<PointType>::Ptr output) {
+void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr &input,
+        pcl::PointCloud<PointType>::Ptr &output) {
+    if (!input || !output || !kept_indices ){
+        cudaFree(dev_min);
+        cudaFree(dev_max);
+        std::cerr << "function not properly initialized " << std::endl;
+        exit(1);
+    }
+
     N = (int)(*input).size();
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
     cudaMalloc((void**) &dev_pc, N * sizeof(PointType));
@@ -218,6 +138,11 @@ void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr i
     kernComputeIndices <<< fullBlockPerGrid_points, blockSize >>> (N, pc_dimension, min_pi,
         inv_radius, dev_pc, dev_array_indices, dev_grid_indices);
     checkCUDAError("kernComputeIndices Failed");
+
+    if (dev_grid_indices){
+        cudaMemcpy(&(*grid_indices)[0], dev_grid_indices, N * sizeof(int), cudaMemcpyDeviceToHost);
+        checkCUDAError("kernCopy grid indices failed");
+    }
 
     thrust::device_ptr<int> dev_thrust_grid_indices =  thrust::device_ptr<int>(dev_grid_indices);
     thrust::device_ptr<int> dev_thrust_array_indices = thrust::device_ptr<int>(dev_array_indices);
@@ -273,6 +198,7 @@ void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr i
 
        //std::cout << "min is " << indices[cell_start] << std::endl;
        (*output).points[i] = (*input).points[indices[cell_start]];
+       kept_indices->emplace_back(indices[cell_start]);
        cell_start = cell_end;
        cell_end = unique_indices[i];
     }

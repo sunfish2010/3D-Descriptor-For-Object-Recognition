@@ -1,4 +1,4 @@
-
+#pragma once
 #include <cmath>
 #include <cfloat>
 #include <cuda.h>
@@ -15,6 +15,8 @@ public:
     using Descriptor<pcl::SHOT352>::_normals;
     using Descriptor<pcl::SHOT352>::_input;
     using Descriptor<pcl::SHOT352>::_surface;
+    using Descriptor<pcl::SHOT352>::_feature_indices;
+    using Descriptor<pcl::SHOT352>::_grid_indices;
 
     SHOT(int nr_shape_bins = 10) :Descriptor<pcl::SHOT352>(0.01),
                                   nr_shape_bins_ (nr_shape_bins),
@@ -23,10 +25,13 @@ public:
                                   nr_grid_sector_ (32),
                                   maxAngularSectors_ (32),
                                   descLength_ (0){};
+    virtual ~SHOT()override= default;
 
 protected:
 
-    void computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output);
+    void computeDescriptor(const pcl::PointCloud<pcl::SHOT352> &output);
+
+
 
     int nr_shape_bins_;
     /** \brief Placeholder for a point's SHOT. */

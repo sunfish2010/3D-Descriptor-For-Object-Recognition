@@ -16,13 +16,17 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
         pcl::PointCloud<pcl::SHOT352>::Ptr model_descriptors){
 //    n_model =
     UniformDownSample filter = UniformDownSample(0.01);
-
+    IndicesPtr kept_indices(new std::vector<int>);
+    IndicesPtr grid_indices(new std::vector<int>(model->points.size()));
+    filter.setKeptIndicesPtr(kept_indices);
+    filter.setGridIndicesPtr(grid_indices);
     filter.downSample(model, model_keypoints);
-
     SHOT descrip_shot;
     descrip_shot.setRadius(0.02);
     descrip_shot.setNormals(model_normals);
     descrip_shot.setInputCloud(model_keypoints);
+    descrip_shot.setFeatureIndices(kept_indices);
+    descrip_shot.setGridIndices(grid_indices);
     descrip_shot.setSurface(model);
     //descrip_shot.compute(*model_descriptors);
 

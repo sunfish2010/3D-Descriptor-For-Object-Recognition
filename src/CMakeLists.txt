@@ -6,6 +6,10 @@ set(SOURCE_FILES
         "sample.h"
         "shot.cu"
         "shot.h"
+        "shot_lrf.cu"
+        "shot_lrf.h"
+        "search.cu"
+        "search.h"
         "kdtree.cpp"
         "kdtree.hpp"
         )

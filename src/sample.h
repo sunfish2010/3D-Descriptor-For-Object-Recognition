@@ -15,7 +15,9 @@ public:
     ~UniformDownSample();
     void setRadius(float radius);
     //void downSample(const pcl::PointCloud<PointType >::ConstPtr input);
-    void downSample(const pcl::PointCloud<PointType >::ConstPtr input, pcl::PointCloud<PointType>::Ptr output);
+    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output);
+    inline void setKeptIndicesPtr(const IndicesPtr &indices){ kept_indices = indices; }
+    inline void setGridIndicesPtr(const IndicesPtr &indices){ grid_indices = indices; }
 
 private:
     float radius;
@@ -28,6 +30,9 @@ private:
     PointType *dev_new_pc;
     int *dev_tmp;
     PointType *dev_pc;
+
+    IndicesPtr kept_indices;
+    IndicesPtr grid_indices;
 
 };
 
