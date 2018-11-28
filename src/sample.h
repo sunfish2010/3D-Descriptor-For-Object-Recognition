@@ -4,35 +4,34 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "common.h"
-
-#include "checkCUDAError.h"
-
+#include "cuda_common.h"
 
 
+class Search;
 class UniformDownSample{
 public:
-    explicit UniformDownSample(float radius);
+    UniformDownSample()= default;
     ~UniformDownSample();
-    void setRadius(float radius);
+    //void setRadius(float radius);
     //void downSample(const pcl::PointCloud<PointType >::ConstPtr input);
-    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output);
-    inline void setKeptIndicesPtr(const IndicesPtr &indices){ kept_indices = indices; }
-    inline void setGridIndicesPtr(const IndicesPtr &indices){ grid_indices = indices; }
+    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, Search& tool);
+    IndicesPtr getKeptIndices();
+    //void getGridIndices(IndicesPtr &indices);
+    void fillOutput(pcl::PointCloud<PointType>::Ptr &output);
+//    inline void setOutput(const pcl::PointCloud<PointType>::Ptr &output){_output  = output;}
 
 private:
-    float radius;
     int N_new;
     int N;
-    Eigen::Vector4f *dev_min;
-    Eigen::Vector4f *dev_max;
-    int *dev_grid_indices;
-    int *dev_array_indices;
+
+    int *dev_kept_indices;
     PointType *dev_new_pc;
-    int *dev_tmp;
     PointType *dev_pc;
 
     IndicesPtr kept_indices;
-    IndicesPtr grid_indices;
+//    IndicesPtr grid_indices;
+//    pcl::PointCloud<PointType>::Ptr _output;
+    pcl::PointCloud<PointType>::ConstPtr _input;
 
 };
 

@@ -1,4 +1,5 @@
 #include "main.hpp"
+
 #include <pcl/filters/uniform_sampling.h>
 #include <pcl/features/shot_omp.h>
 #include <pcl/recognition/cg/geometric_consistency.h>
@@ -104,11 +105,9 @@ bool init(){
 #endif
 
     (*model_keypoints).points.clear();
-    t1 = std::chrono::high_resolution_clock::now();
+
     detectionInit(model, model_keypoints, model_normals, model_descriptors);
-    t2 = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
+
 
     std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "Model total points GPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;

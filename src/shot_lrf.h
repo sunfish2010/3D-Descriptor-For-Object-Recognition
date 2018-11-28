@@ -4,7 +4,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "descriptor.h"
-#include "checkCUDAError.h"
+#include "cuda_common.h"
 
 class SHOT_LRF:public Descriptor<pcl::ReferenceFrame>{
 public:

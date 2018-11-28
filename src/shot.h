@@ -4,7 +4,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "descriptor.h"
-#include "checkCUDAError.h"
+#include "cuda_common.h"
 
 class SHOT:public Descriptor<pcl::SHOT352>{
 public:
