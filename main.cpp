@@ -85,16 +85,16 @@ bool init(){
     pcl::UniformSampling<PointType> uniform_sampling;
 
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    uniform_sampling.setInputCloud (model);
+    uniform_sampling.setInputCloud (scene);
     uniform_sampling.setRadiusSearch (0.01f);
-    uniform_sampling.filter (*model_keypoints);
+    uniform_sampling.filter (*scene_keypoints);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "PCL implementation  downsampling takes: " << duration << std::endl;
     rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
     //viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
     std::cout << "---------------------------------------------------------" << std::endl;
-    std::cout << "Model total points CPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
+    std::cout << "Model total points CPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
     Eigen::Vector4f min_p, max_p;
 
@@ -104,16 +104,16 @@ bool init(){
     std::cout << "The min for each dimension using pcl is " << min_p << std::endl;
 #endif
 
-    (*model_keypoints).points.clear();
+    (*scene_keypoints).points.clear();
 
-    detectionInit(model, model_keypoints, model_normals, model_descriptors);
+    detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
 
 
     std::cout << "---------------------------------------------------------" << std::endl;
-    std::cout << "Model total points GPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
+    std::cout << "Model total points GPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
-    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
-    viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
+    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene_keypoints);
+    viewer->addPointCloud(scene_keypoints, rgb, "model_keypoints");
 
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "model");
 

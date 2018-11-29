@@ -20,17 +20,17 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
     IndicesPtr kept_indices;
     IndicesPtr grid_indices(new std::vector<int>(model->points.size()));
 
-    Search search_tool;
-    search_tool.setSurface(model);
-    search_tool.initSearch(0.01);
+//    Search search_tool;
+//    search_tool.setSurface(model);
+//    search_tool.initSearch(0.01);
 
     UniformDownSample filter;
-
+    filter.setRadius(0.01);
 //    filter.setKeptIndicesPtr(kept_indices);
 //    filter.setGridIndicesPtr(grid_indices);
 
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    filter.downSample(model, search_tool);
+    filter.downSample(model);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;

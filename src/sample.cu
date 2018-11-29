@@ -10,11 +10,21 @@
 
 
 
-
 /*
  * Atomic functions for float
  * https://stackoverflow.com/questions/17399119/cant-we-use-atomic-operations-for-floating-point-variables-in-cuda
  */
+__device__ static float atomicMax(float* address, float val)
+{
+    int* address_as_i = (int*) address;
+    int old = *address_as_i, assumed;
+    do {
+        assumed = old;
+        old = ::atomicCAS(address_as_i, assumed,
+                          __float_as_int(::fmaxf(val, __int_as_float(assumed))));
+    } while (assumed != old);
+    return __int_as_float(old);
+}
 
 __device__ static float atomicMin(float* address, float val){
     int* address_as_i = (int*) address;
@@ -25,6 +35,25 @@ __device__ static float atomicMin(float* address, float val){
                           __float_as_int(::fminf(val, __int_as_float(assumed))));
     } while (assumed != old);
     return __int_as_float(old);
+}
+
+
+/** \brief common functions for search  */
+__global__ void getMinMax(int N ,const PointType *pts_in, Eigen::Vector4f *min_pt, Eigen::Vector4f  *max_pt){
+    int index = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (index < N){
+
+        PointType pt = pts_in[index] ;
+        if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
+            //float pt_x = pt.x, pt_y = pt.y, pt_z = pt.z;
+            atomicMin(&(*min_pt)[0], pt.x);
+            atomicMin(&(*min_pt)[1], pt.y);
+            atomicMin(&(*min_pt)[2], pt.z);
+            atomicMax(&(*max_pt)[0], pt.x);
+            atomicMax(&(*max_pt)[1], pt.y);
+            atomicMax(&(*max_pt)[2], pt.z);
+        }
+    }
 }
 
 struct keep {
@@ -41,42 +70,34 @@ struct keep {
 
 
 //
-//global__ void kernDownSample(int N, const PointType *pos_in, PointType *pos_out, int* keep){
-//    int index = threadIdx.x + blockIdx.x * blockDim.x;
-//    if (index < N ){
-//        if (keep[index] > 0){
-//            pos_out
-//        }
-//    }
-//
-//}
+__global__ void kernDownSample(int N, const float *dist, const float *dist_min, int *grid_indices,  int* keep){
+    int index = threadIdx.x + blockIdx.x * blockDim.x;
+    if (index < N ){
+        if (dist[index] == dist_min[grid_indices[index]]){
+            keep[index] = index;
+        }
+    }
+
+}
 
 
-__global__ void kernComputeMinDist(int N, const PointType *pos,const int*indices,
-        int*min_indices, Eigen::Vector4f inv_radius){
-    extern __shared__ float dist[];
+__global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eigen::Vector4i grid_min,
+        Eigen::Vector4f inv_radius, PointType *pos, int *grid_indices, float*min_dist, float*dist){
+//    extern __shared__ float dist[];
     int index = threadIdx.x + blockDim.x * blockIdx.x;
     if (index < N){
-        for (int offset = 0; offset * 8192 < N; offset++){
-            if (index < 8192 * (offset + 1)&& index >= 8192 * offset){
-                PointType pt = pos[index];
-                if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
-                    Eigen::Vector4i ijk(static_cast<int>(floor(pt.x * inv_radius[0])),
-                                        static_cast<int>(floor(pt.y * inv_radius[1])), static_cast<int>(floor(pt.z * inv_radius[2])), 0);
-                    float curr_dist = (pt.x - ijk[0]) * (pt.x - ijk[0]) + (pt.y - ijk[1]) * (pt.y - ijk[1])
-                                      + (pt.z - ijk[2]) * (pt.z - ijk[2]);
-                    //if (indices[index] > 8700 || indices[index] < 0)printf("indice is %d", indices[index]);
+        PointType pt = pos[index];
+        if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
+            Eigen::Vector4i ijk(static_cast<int>(floor(pt.x * inv_radius[0])),
+                                static_cast<int>(floor(pt.y * inv_radius[1])), static_cast<int>(floor(pt.z * inv_radius[2])), 0);
+            float curr_dist = (pt.x - ijk[0]) * (pt.x - ijk[0]) + (pt.y - ijk[1]) * (pt.y - ijk[1])
+                              + (pt.z - ijk[2]) * (pt.z - ijk[2]);
+            Eigen::Vector4i offset = ijk - grid_min;
+            int i = offset[0] + offset[1] * grid_res[0] + offset[2] * grid_res[0] * grid_res[1];
+            grid_indices[index] = i;
+            dist[index] = curr_dist;
+            atomicMin(&min_dist[i], curr_dist);
 
-//            __syncthreads();
-                    int bin = indices[index] - (indices[index] / 8192) * 8192 ;
-                    if (bin > 4000)
-                        printf("bin is %d, dist is : %f", bin, curr_dist);
-                    atomicMin(&dist[bin], curr_dist);
-
-                    if (curr_dist == dist[bin])
-                        min_indices[index] = index;
-                }
-            }
         }
     }
 
@@ -95,63 +116,81 @@ __global__ void kernComputeMinDist(int N, const PointType *pos,const int*indices
 UniformDownSample::~UniformDownSample() {
 
     cudaFree(dev_kept_indices);
-    cudaFree(dev_pc);
-
+    cudaFree(dev_grid_indices);
+    cudaFree(dev_min);
+    cudaFree(dev_max);
     dev_kept_indices = NULL;
-    dev_pc = NULL;
 }
 
 
-void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr &input,
-         Search& tool ) {
-    if (input != tool._surface) {
-        std::cout << "The input must be the same as the search surface" << std::endl;
-    }
+void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr &input) {
+    if (radius == 0)
+        std::cerr << "error" << std::endl;
     _input = input;
-    int grid_N = tool._grid_count;
-    std::cout << grid_N << std::endl;
-    N = tool._N_surface;
-    dim3 fullBlockPerGrid(static_cast<u_int32_t >((N + blockSize - 1) / blockSize));
+    N = static_cast<int>((*input).points.size());
+    dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
+    cudaMalloc((void**) &dev_pos_surface, N * sizeof(PointType));
+    cudaMemcpy(dev_pos_surface, &(*input).points[0], N * sizeof(PointType), cudaMemcpyHostToDevice);
+    checkCUDAError("cudaMemcpy pc");
 
-    cudaMalloc((void **) &dev_kept_indices, N * sizeof(int));
+    // calculate min max for the pc
+    Eigen::Vector4f min_p, max_p;
+    min_p.setConstant(FLT_MAX);
+    max_p.setConstant(-FLT_MAX);
+    cudaMemcpy(dev_min, &min_p, sizeof(Eigen::Vector4f), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_max, &max_p, sizeof(Eigen::Vector4f), cudaMemcpyHostToDevice);
+    checkCUDAError("cudaMemcpy min,max");
+
+    getMinMax <<< fullBlockPerGrid_points, blockSize>>>(N, dev_pos_surface, dev_min, dev_max);
+    checkCUDAError("getMinMax error");
+    cudaMemcpy(&min_p, dev_min, sizeof(Eigen::Vector4f), cudaMemcpyDeviceToHost);
+    checkCUDAError("memcpy min  error");
+    cudaMemcpy(&max_p, dev_max, sizeof(Eigen::Vector4f), cudaMemcpyDeviceToHost);
+    checkCUDAError("memcpy max error");
+
+    // devide the pc into cells
+    inv_radius = Eigen::Array4f::Ones()/ (Eigen::Vector4f(radius, radius, radius, 1.0f).array());
+    max_pi = Eigen::Vector4i(static_cast<int>(floor(max_p[0] * inv_radius[0])),
+                             static_cast<int>(floor(max_p[1] * inv_radius[1])), static_cast<int>(floor(max_p[2] * inv_radius[2])), 0);
+    min_pi = Eigen::Vector4i(static_cast<int>(floor(min_p[0] * inv_radius[0])),
+                             static_cast<int>(floor(min_p[1] * inv_radius[1])), static_cast<int>(floor(inv_radius[2] * min_p[2])), 0);
+
+
+    pc_dimension = max_pi - min_pi + Eigen::Vector4i::Ones();
+    pc_dimension[3] = 0;
+
+    _grid_count_max = pc_dimension[0] + pc_dimension[0] * pc_dimension[1] + pc_dimension[0] * pc_dimension[1] * pc_dimension[2];
+
+    //Eigen::Vector4i grid_res = Eigen::Vector4i(1, pc_dimension[0], pc_dimension[0] * pc_dimension[1], 0);
+
+    cudaMalloc((void**)&dev_grid_indices, N * sizeof(int));
+    checkCUDAError("cudaMalloc dev_indices error");
+    cudaMalloc((void**)&dev_kept_indices, N * sizeof(int));
+    checkCUDAError("cudaMalloc dev_indices error");
     cudaMemset(dev_kept_indices, -1, N * sizeof(int));
 
-    kernComputeMinDist << < fullBlockPerGrid, blockSize, 8192 * sizeof(float) >> > (N, tool.dev_pos_surface,
-            tool.dev_grid_indices, dev_kept_indices, tool.inv_radius);
+    cudaMalloc((void**)&dev_dist, N * sizeof(float));
+    checkCUDAError("cudaMalloc dev_indices error");
+    cudaMalloc((void**)&dev_min_dist, _grid_count_max * sizeof(float));
+    checkCUDAError("cudaMalloc dev_indices error");
+    thrust::device_ptr<float> dev_ptr(dev_min_dist);
+    thrust::fill(dev_ptr, dev_ptr + N, FLT_MAX);
 
-    checkCUDAError("kernComputeMinDist error");
+    kernComputeIndicesDistances <<< fullBlockPerGrid_points, blockSize >>> (N, pc_dimension, min_pi,
+            inv_radius, dev_pos_surface, dev_grid_indices,  dev_min_dist, dev_dist);
+    checkCUDAError("kernComputeIndices Failed");
 
-//    thrust::device_ptr<int> dev_thrust_tmp = thrust::device_ptr<int>(dev_kept_indices);
-    int *new_end = thrust::partition(thrust::device, dev_kept_indices, dev_kept_indices + N, keep());
+    kernDownSample<<< fullBlockPerGrid_points, blockSize>>>(N, dev_dist, dev_min_dist, dev_grid_indices,dev_kept_indices);
 
+    int * new_end = thrust::partition(thrust::device, dev_kept_indices, dev_kept_indices + N, keep());
     N_new = static_cast<int>(new_end - dev_kept_indices);
 
-//    cudaMalloc((void**)&dev_new_pc, N * sizeof(PointType));
-//    checkCUDAError("malloc dev_coherent_pc error");
-//    thrust::copy_if(dev_kept_indices, dev_kept_indices + N, dev_new_pc, keep());
-//    checkCUDAError("thrust copy error");
-//#if VERBOSE
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "Num unique element is " << num_unique << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "Min is " << min_pi << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "Max is " << max_pi << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "The inverse radius is " << inv_radius << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "The grid count is " << total_grid_count << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "The point cloud dimension is " << pc_dimension << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//
-//#endif
-
+    std::cout << N_new << std::endl;
 
 }
 
 void UniformDownSample::fillOutput(pcl::PointCloud<PointType>::Ptr &output) {
-    if (!output ) {
+    if (!output || !_input ) {
         std::cout << "" << std::endl;
     }
     std::cout << "---------------------------------------------------------" << std::endl;
