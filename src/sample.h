@@ -1,38 +1,34 @@
 #pragma once
-#include <cmath>
-#include <cfloat>
-#include <cuda.h>
-#include <cuda_runtime.h>
+
 #include "common.h"
 
-#include "checkCUDAError.h"
+#include "cudaCommon.h"
 
 
 
 class UniformDownSample{
 public:
-    explicit UniformDownSample(float radius);
+    UniformDownSample()= default;
     ~UniformDownSample();
-    void setRadius(float radius);
+//    void setRadius(float radius);
     //void downSample(const pcl::PointCloud<PointType >::ConstPtr input);
-    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output);
+    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output,
+                    const IndicesPtr &grid_indices, const IndicesPtr &array_indices,
+                    const Eigen::Vector4f &inv_radius);
+    void randDownSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output);
     inline void setKeptIndicesPtr(const IndicesPtr &indices){ kept_indices = indices; }
-    inline void setGridIndicesPtr(const IndicesPtr &indices){ grid_indices = indices; }
 
 private:
-    float radius;
-    int N_new;
-    int N;
-    Eigen::Vector4f *dev_min;
-    Eigen::Vector4f *dev_max;
-    int *dev_grid_indices;
-    int *dev_array_indices;
-    PointType *dev_new_pc;
-    int *dev_tmp;
-    PointType *dev_pc;
+//    float radius=0.f;
+//    int N_new=0;
+    int N=0;
+    int *dev_grid_indices=NULL;
+    int *dev_array_indices=NULL;
+    PointType *dev_new_pc=NULL;
+    int *dev_tmp=NULL;
+    PointType *dev_pc=NULL;
 
     IndicesPtr kept_indices;
-    IndicesPtr grid_indices;
 
 };
 

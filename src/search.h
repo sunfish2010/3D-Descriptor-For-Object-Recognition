@@ -4,7 +4,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "common.h"
-#include "checkCUDAError.h"
+#include "cudaCommon.h"
 #include "kdtree.hpp"
 
 class Search{

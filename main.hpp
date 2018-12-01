@@ -10,7 +10,7 @@
 #include <cuda_runtime.h>
 #include "src/detection.h"
 #include "src/kdtree.hpp"
-#include <chrono>
+
 using namespace std;
 
 

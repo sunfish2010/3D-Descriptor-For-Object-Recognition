@@ -4,6 +4,8 @@ set(SOURCE_FILES
         "detection.h"
         "sample.cu"
         "sample.h"
+        "grid.cu"
+        "grid.h"
         "shot.cu"
         "shot.h"
         "shot_lrf.cu"

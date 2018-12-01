@@ -1,4 +1,5 @@
 #include "main.hpp"
+
 #include <pcl/filters/uniform_sampling.h>
 #include <pcl/features/shot_omp.h>
 #include <pcl/recognition/cg/geometric_consistency.h>
@@ -80,20 +81,22 @@ bool init(){
     normal_est.setKSearch(10);
     normal_est.setInputCloud(model);
     normal_est.compute(*model_normals);
+    normal_est.setInputCloud(scene);
+    normal_est.compute(*scene_normals);
 
     pcl::UniformSampling<PointType> uniform_sampling;
 
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    uniform_sampling.setInputCloud (model);
+    uniform_sampling.setInputCloud (scene);
     uniform_sampling.setRadiusSearch (0.01f);
-    uniform_sampling.filter (*model_keypoints);
+    uniform_sampling.filter (*scene_keypoints);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "PCL implementation  downsampling takes: " << duration << std::endl;
     rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
     //viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
     std::cout << "---------------------------------------------------------" << std::endl;
-    std::cout << "Model total points CPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
+    std::cout << "Model total points CPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
     Eigen::Vector4f min_p, max_p;
 
@@ -103,19 +106,18 @@ bool init(){
     std::cout << "The min for each dimension using pcl is " << min_p << std::endl;
 #endif
 
-    (*model_keypoints).points.clear();
-    t1 = std::chrono::high_resolution_clock::now();
+    (*scene_keypoints).points.clear();
+
+    detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
     detectionInit(model, model_keypoints, model_normals, model_descriptors);
-    t2 = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
 
     std::cout << "---------------------------------------------------------" << std::endl;
-    std::cout << "Model total points GPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
+    std::cout << "Model total points GPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
+    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene_keypoints);
+    viewer->addPointCloud(scene_keypoints, rgb, "scene_keypoints");
     rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
     viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
-
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "model");
 
 //    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scene");
@@ -210,9 +212,11 @@ void detection_cpu(){
     std::cout << "Model total points: " << model->size () << "; Selected Keypoints: " << model_keypoints->size () << std::endl;
 
     uniform_sampling.setInputCloud (scene);
-    uniform_sampling.setRadiusSearch (0.03f);
+    uniform_sampling.setRadiusSearch (0.035f);
     uniform_sampling.filter (*scene_keypoints);
     std::cout << "Scene total points: " << scene->size () << "; Selected Keypoints: " << scene_keypoints->size () << std::endl;
+
+
 
     //descriptors
     pcl::SHOTEstimationOMP<PointType, pcl::Normal, pcl::SHOT352> descr_est;
