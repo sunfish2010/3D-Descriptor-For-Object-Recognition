@@ -16,6 +16,7 @@ public:
     inline Eigen::Vector4i getSceneMin() const { return min_pi; }
     inline Eigen::Vector4i getSceneMax()const {return max_pi;}
     inline Eigen::Vector4f getInverseRadius() const {return inv_radius;}
+    inline Eigen::Vector4i getDimension()const {return pc_dimension;}
 
 
 private:

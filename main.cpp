@@ -88,11 +88,20 @@ bool init(){
 
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     uniform_sampling.setInputCloud (scene);
-    uniform_sampling.setRadiusSearch (0.01f);
+    uniform_sampling.setRadiusSearch (0.03f);
     uniform_sampling.filter (*scene_keypoints);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "PCL implementation  downsampling takes: " << duration << std::endl;
+    std::cout << "PCL implementation scene downsampling takes: " << duration << std::endl;
+
+    t1 = std::chrono::high_resolution_clock::now();
+    uniform_sampling.setInputCloud (model);
+    uniform_sampling.setRadiusSearch (0.01f);
+    uniform_sampling.filter (*model_keypoints);
+    t2 = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+    std::cout << "PCL implementation model downsampling takes: " << duration << std::endl;
+
     rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
     //viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
     std::cout << "---------------------------------------------------------" << std::endl;
@@ -109,7 +118,10 @@ bool init(){
     (*scene_keypoints).points.clear();
     for (int i = 0 ; i < 2; ++i){
         detectionInit(model, model_keypoints, model_normals, model_descriptors);
+        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
         detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
+        std::cout << "---------------------------------------------------------" << std::endl;
+        std::cout << "---------------------------------------------------------" << std::endl;
     }
 
 

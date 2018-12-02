@@ -106,29 +106,31 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     std::cout << "allocate and memcpy pt takes: " << miliseconds << std::endl;
     // calculate min max for the pc
 
+    // after timing, cpu much faster so just use cpu version
     Eigen::Vector4f min_p, max_p;
-
-    min_p.setConstant(FLT_MAX);
-    max_p.setConstant(-FLT_MAX);
-    cudaEventRecord(start);
-    cudaMalloc((void**)&dev_min, sizeof(Eigen::Vector4f));
-    checkCUDAError("cudaMalloc min");
-    cudaMalloc((void**)&dev_max, sizeof(Eigen::Vector4f));
-    checkCUDAError("cudaMalloc max");
-    cudaMemcpy(dev_min, &min_p, sizeof(Eigen::Vector4f), cudaMemcpyHostToDevice);
-    cudaMemcpy(dev_max, &max_p, sizeof(Eigen::Vector4f), cudaMemcpyHostToDevice);
-    checkCUDAError("cudaMemcpy min,max");
-
-    getMinMax <<< fullBlockPerGrid_points, blockSize>>>(N, dev_pc, dev_min, dev_max);
-    checkCUDAError("getMinMax error");
-    cudaMemcpy(&min_p, dev_min, sizeof(Eigen::Vector4f), cudaMemcpyDeviceToHost);
-    checkCUDAError("memcpy min  error");
-    cudaMemcpy(&max_p, dev_max, sizeof(Eigen::Vector4f), cudaMemcpyDeviceToHost);
-    checkCUDAError("memcpy max error");
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&miliseconds, start, stop);
-    std::cout << "calculating min max takes  " << miliseconds << std::endl;
+    pcl::getMinMax3D<PointType>(*input, min_p, max_p);
+//
+//    min_p.setConstant(FLT_MAX);
+//    max_p.setConstant(-FLT_MAX);
+//    cudaEventRecord(start);
+//    cudaMalloc((void**)&dev_min, sizeof(Eigen::Vector4f));
+//    checkCUDAError("cudaMalloc min");
+//    cudaMalloc((void**)&dev_max, sizeof(Eigen::Vector4f));
+//    checkCUDAError("cudaMalloc max");
+//    cudaMemcpy(dev_min, &min_p, sizeof(Eigen::Vector4f), cudaMemcpyHostToDevice);
+//    cudaMemcpy(dev_max, &max_p, sizeof(Eigen::Vector4f), cudaMemcpyHostToDevice);
+//    checkCUDAError("cudaMemcpy min,max");
+//
+//    getMinMax <<< fullBlockPerGrid_points, blockSize>>>(N, dev_pc, dev_min, dev_max);
+//    checkCUDAError("getMinMax error");
+//    cudaMemcpy(&min_p, dev_min, sizeof(Eigen::Vector4f), cudaMemcpyDeviceToHost);
+//    checkCUDAError("memcpy min  error");
+//    cudaMemcpy(&max_p, dev_max, sizeof(Eigen::Vector4f), cudaMemcpyDeviceToHost);
+//    checkCUDAError("memcpy max error");
+//    cudaEventRecord(stop);
+//    cudaEventSynchronize(stop);
+//    cudaEventElapsedTime(&miliseconds, start, stop);
+//    std::cout << "calculating min max takes  " << miliseconds << std::endl;
     // device the pc into cells
 
     inv_radius = Eigen::Array4f::Ones()/ (Eigen::Vector4f(radius, radius, radius, 1.0f).array());
