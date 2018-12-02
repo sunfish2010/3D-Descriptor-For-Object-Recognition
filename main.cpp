@@ -107,9 +107,11 @@ bool init(){
 #endif
 
     (*scene_keypoints).points.clear();
+    for (int i = 0 ; i < 2; ++i){
+        detectionInit(model, model_keypoints, model_normals, model_descriptors);
+        detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
+    }
 
-    detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
-    detectionInit(model, model_keypoints, model_normals, model_descriptors);
 
     std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "Model total points GPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;

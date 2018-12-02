@@ -1,7 +1,7 @@
 
 #include "grid.h"
 
-
+static cudaEvent_t start, stop;
 /*
  * Atomic functions for float
  * https://stackoverflow.com/questions/17399119/cant-we-use-atomic-operations-for-floating-point-variables-in-cuda
@@ -32,20 +32,31 @@ __device__ static float atomicMin(float* address, float val){
 
 
 __global__ void getMinMax(int N ,const PointType *pts_in, Eigen::Vector4f *min_pt, Eigen::Vector4f  *max_pt){
+    __shared__ float min_max[6];
+    for (int i = 0; i < 3; ++i)
+        min_max[i] = FLT_MAX;
+    for (int i = 3; i < 6; ++i)
+        min_max[i] = FLT_MIN;
+    __syncthreads();
     int index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index < N){
-
         PointType pt = pts_in[index] ;
         if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
-            //float pt_x = pt.x, pt_y = pt.y, pt_z = pt.z;
-            atomicMin(&(*min_pt)[0], pt.x);
-            atomicMin(&(*min_pt)[1], pt.y);
-            atomicMin(&(*min_pt)[2], pt.z);
-            atomicMax(&(*max_pt)[0], pt.x);
-            atomicMax(&(*max_pt)[1], pt.y);
-            atomicMax(&(*max_pt)[2], pt.z);
+            atomicMin(&min_max[0], pt.x);
+            atomicMin(&min_max[1], pt.y);
+            atomicMin(&min_max[2], pt.z);
+            atomicMax(&min_max[3], pt.x);
+            atomicMax(&min_max[4], pt.y);
+            atomicMax(&min_max[5], pt.z);
         }
     }
+    __syncthreads();
+    atomicMin(&(*min_pt)[0], min_max[0]);
+    atomicMin(&(*min_pt)[1], min_max[1]);
+    atomicMin(&(*min_pt)[2], min_max[2]);
+    atomicMax(&(*max_pt)[0], min_max[3]);
+    atomicMax(&(*max_pt)[1], min_max[4]);
+    atomicMax(&(*max_pt)[2], min_max[5]);
 }
 
 
@@ -78,19 +89,28 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     if (!input || radius <= 0 || !grid_indices || !array_indices){
         std::cerr <<  "ComputeSceneProperty input not set correctly " << std::endl;
     }
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    float miliseconds = 0;
 
     N = (int)(*input).size();
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
+
+    cudaEventRecord(start);
     cudaMalloc((void**) &dev_pc, N * sizeof(PointType));
     cudaMemcpy(dev_pc, &(*input).points[0], N * sizeof(PointType), cudaMemcpyHostToDevice);
     checkCUDAError("cudaMemcpy pc");
-
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&miliseconds, start, stop);
+    std::cout << "allocate and memcpy pt takes: " << miliseconds << std::endl;
     // calculate min max for the pc
 
     Eigen::Vector4f min_p, max_p;
 
     min_p.setConstant(FLT_MAX);
     max_p.setConstant(-FLT_MAX);
+    cudaEventRecord(start);
     cudaMalloc((void**)&dev_min, sizeof(Eigen::Vector4f));
     checkCUDAError("cudaMalloc min");
     cudaMalloc((void**)&dev_max, sizeof(Eigen::Vector4f));
@@ -105,6 +125,10 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     checkCUDAError("memcpy min  error");
     cudaMemcpy(&max_p, dev_max, sizeof(Eigen::Vector4f), cudaMemcpyDeviceToHost);
     checkCUDAError("memcpy max error");
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&miliseconds, start, stop);
+    std::cout << "calculating min max takes  " << miliseconds << std::endl;
     // device the pc into cells
 
     inv_radius = Eigen::Array4f::Ones()/ (Eigen::Vector4f(radius, radius, radius, 1.0f).array());
@@ -117,6 +141,7 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     pc_dimension = max_pi - min_pi + Eigen::Vector4i::Ones();
     pc_dimension[3] = 0;
 
+    cudaEventRecord(start);
     cudaMalloc((void**)&dev_grid_indices, N * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
     cudaMalloc((void**)&dev_array_indices, N * sizeof(int));
@@ -125,6 +150,11 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     kernComputeIndices <<< fullBlockPerGrid_points, blockSize >>> (N, pc_dimension, min_pi,
             inv_radius, dev_pc, dev_array_indices, dev_grid_indices);
     checkCUDAError("kernComputeIndices Failed");
+
+    cudaEventRecord(stop);
+    cudaEventSynchronize(stop);
+    cudaEventElapsedTime(&miliseconds, start, stop);
+    std::cout << "calculating array & grid indices takes  " <<miliseconds << std::endl;
 
     if (grid_indices){
         cudaMemcpy(&(*grid_indices)[0], dev_grid_indices, N * sizeof(int), cudaMemcpyDeviceToHost);
@@ -140,7 +170,7 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
 }
 
 
-void Grid::~Grid() {
+Grid::~Grid() {
     cudaFree(dev_array_indices);
     cudaFree(dev_grid_indices);
     cudaFree(dev_min);

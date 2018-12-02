@@ -91,7 +91,6 @@ UniformDownSample::~UniformDownSample() {
     dev_pc = NULL;
 }
 
-void UniformDownSample::setRadius(float radius) {this->radius = radius;}
 
 void UniformDownSample::randDownSample(const pcl::PointCloud<PointType>::ConstPtr &input,
                                        pcl::PointCloud<PointType>::Ptr &output) {
@@ -151,11 +150,11 @@ void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr &
 
     cudaMalloc((void**)&dev_grid_indices, N * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
-    cudaMemcpy(dev_grid_indices,& (*grid_indices)[0], N * sizeof(int));
+    cudaMemcpy(dev_grid_indices,& (*grid_indices)[0], N * sizeof(int), cudaMemcpyHostToDevice);
     checkCUDAError("cudaMemcpy dev_indices error");
     cudaMalloc((void**)&dev_array_indices, N * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
-    cudaMemcpy(dev_array_indices,& (*array_indices)[0], N * sizeof(int));
+    cudaMemcpy(dev_array_indices,& (*array_indices)[0], N * sizeof(int), cudaMemcpyHostToDevice);
     checkCUDAError("cudaMemcy dev_indices error");
 
     cudaMalloc((void**) &dev_pc, N * sizeof(PointType));

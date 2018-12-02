@@ -15,16 +15,18 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
         pcl::PointCloud<pcl::SHOT352>::Ptr model_descriptors){
 
     //compute the common characters for the whole background
-    float grid_res =  model->points.size() > 10000? 0.3f,0.1f;
-    IndicesPtr grid_indices(new std::vector<int>(model->points.size()));
-    IndicesPtr array_indices(new std::vector<int>(model->points.size()));
+    unsigned int N = model->points.size();
+    std::cout << "Num of pts is " << N << std::endl;
+    float grid_res =  N > 10000? 0.3f:0.1f;
+    IndicesPtr grid_indices(new std::vector<int>(N));
+    IndicesPtr array_indices(new std::vector<int>(N));
     Grid grid;
     grid.setRadius(grid_res);
-    grid.computeSceneProperty(input, grid_indices, array_indices);
+    grid.computeSceneProperty(model, grid_indices, array_indices);
     Eigen::Vector4i min = grid.getSceneMin();
     Eigen::Vector4i max = grid.getSceneMax();
     Eigen::Vector4f inv_radius = grid.getInverseRadius();
-//    std::cout << "---------------------------------------------------------" << std::endl;
+    std::cout << "---------------------------------------------------------" << std::endl;
 //    std::cout << "Min is " << min_pi << std::endl;
 //    std::cout << "---------------------------------------------------------" << std::endl;
 //    std::cout << "Max is " << max_pi << std::endl;
@@ -32,24 +34,24 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
 //    std::cout << "The inverse radius is " << inv_radius << std::endl;
 
 
-    UniformDownSample filter;
-
-
-    filter.setKeptIndicesPtr(kept_indices);
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    filter.downSample(model, model_keypoints, grid_indices, array_indices, inv_radius);
-//    filter.randDownSample(model, model_keypoints);
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
-
-    Eigen::Vector4i pc_dimension;
-
-    SHOT_LRF lrf;
-    lrf.setRadius(0.02f);
-    lrf.setInputCloud(model_keypoints);
-    lrf.setSurface(model);
-    lrf.setNormals(model_normals);
+//    UniformDownSample filter;
+//
+//
+//    filter.setKeptIndicesPtr(kept_indices);
+//    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+//    filter.downSample(model, model_keypoints, grid_indices, array_indices, inv_radius);
+////    filter.randDownSample(model, model_keypoints);
+//    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+//    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+//    std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
+//
+//    Eigen::Vector4i pc_dimension;
+//
+//    SHOT_LRF lrf;
+//    lrf.setRadius(0.02f);
+//    lrf.setInputCloud(model_keypoints);
+//    lrf.setSurface(model);
+//    lrf.setNormals(model_normals);
 
 //    SHOT descrip_shot;
 //    descrip_shot.setRadius(0.02);
