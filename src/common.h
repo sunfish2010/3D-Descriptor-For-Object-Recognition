@@ -12,11 +12,8 @@
 #include <pcl/common/common.h>
 #include <pcl/point_types.h>
 
-
-
+#include <chrono>
 typedef pcl::PointXYZRGB PointType;
 typedef boost::shared_ptr<std::vector<int>> IndicesPtr;
 
-const int blockSize = 128;
-
-
+const int blockSize = 256;

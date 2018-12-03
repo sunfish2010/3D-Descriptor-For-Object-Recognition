@@ -1,51 +1,39 @@
 #pragma once
-#include <cmath>
-#include <cfloat>
-#include <cuda.h>
-#include <cuda_runtime.h>
+
 #include "common.h"
-#include "cuda_common.h"
+#include "cudaCommon.h"
 
 
 class Search;
 class UniformDownSample{
 public:
-    UniformDownSample(){
-        cudaMalloc((void**)&dev_min, sizeof(Eigen::Vector4f));
-        cudaMalloc((void**)&dev_max, sizeof(Eigen::Vector4f));
-        checkCUDAError("cudaMalloc min,max");
-    }
+    UniformDownSample()= default;
     ~UniformDownSample();
-    inline void setRadius(float radius){this->radius = radius;}
+//    void setRadius(float radius);
     //void downSample(const pcl::PointCloud<PointType >::ConstPtr input);
-    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input);
-    IndicesPtr getKeptIndices();
-    //void getGridIndices(IndicesPtr &indices);
-    void fillOutput(pcl::PointCloud<PointType>::Ptr &output);
-//    inline void setOutput(const pcl::PointCloud<PointType>::Ptr &output){_output  = output;}
+    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output,
+                    IndicesPtr &kept_indices, const IndicesPtr &grid_indices, const IndicesPtr &array_indices,
+                    const Eigen::Vector4f &inv_radius);
+    void randDownSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output);
+    void downSampleAtomic(const pcl::PointCloud<PointType >::ConstPtr &input, const Eigen::Vector4f &inv_radius,
+            const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);
+//    inline void setKeptIndicesPtr(const IndicesPtr &indices){ kept_indices = indices; }
+
+    void display(const pcl::PointCloud<PointType >::ConstPtr &input, const pcl::PointCloud<PointType>::Ptr &output);
 
 private:
-    /** \brief for grid set up */
-    int N;
-    int N_new;
-    float radius;
-    Eigen::Vector4f *dev_min;
-    Eigen::Vector4f *dev_max;
-    Eigen::Vector4i min_pi, max_pi;
-    Eigen::Vector4f inv_radius;
-    Eigen::Vector4i pc_dimension;
-
-    int *dev_grid_indices;
-    int *dev_kept_indices;
-    PointType *dev_pos_surface;
-    int _grid_count_max;
-    float *dev_min_dist;
-    float *dev_dist;
-
-    IndicesPtr kept_indices;
-//    IndicesPtr grid_indices;
-//    pcl::PointCloud<PointType>::Ptr _output;
-    pcl::PointCloud<PointType>::ConstPtr _input;
+//    float radius=0.f;
+    int N_new=0;
+    int N=0;
+    int *dev_grid_indices=NULL;
+    int *dev_array_indices=NULL;
+    int *dev_kept_indices = NULL;
+    float *dev_min_dist = NULL;
+    float *dev_dist = NULL;
+    PointType *dev_new_pc=NULL;
+    int *dev_tmp=NULL;
+    PointType *dev_pc=NULL;
+    std::vector<int> kept_indices;
 
 };
 

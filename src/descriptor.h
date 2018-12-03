@@ -1,3 +1,4 @@
+#pragma once
 #include "common.h"
 
 
@@ -15,18 +16,19 @@ public:
     inline void setNormals(pcl::PointCloud<pcl::Normal>::ConstPtr normals){_normals = normals;}
     inline void setSurface(pcl::PointCloud<PointType>::ConstPtr surface){_surface = surface;}
     inline void setInputCloud(pcl::PointCloud<PointType>::ConstPtr input){_input = input;}
-    inline void setFeatureIndices(const IndicesPtr &feature_indices){_feature_indices = feature_indices;}
-    inline void setGridIndices(const IndicesPtr &grid_indices){_grid_indices = grid_indices;}
+    inline void setFeatureNeighborsIndices(const IndicesPtr &neighbor_indices){_neighbor_indices = neighbor_indices;}
+    inline void setKeptIndices(const IndicesPtr &kept_indices){_kept_indices = kept_indices;}
 
     void compute(const PointCloudOut &output);
 
 protected:
     float _radius;
+    const int _k = 15;
     pcl::PointCloud<PointType>::ConstPtr _input;
     pcl::PointCloud<pcl::Normal>::ConstPtr _normals;
     pcl::PointCloud<PointType>::ConstPtr _surface;
-    IndicesPtr _feature_indices;
-    IndicesPtr _grid_indices;
+    IndicesPtr _neighbor_indices;
+    IndicesPtr _kept_indices;
 private:
     bool initialized();
     virtual void computeDescriptor(const PointCloudOut &output) = 0;
@@ -48,7 +50,6 @@ void Descriptor<OutType>::compute(const PointCloudOut &output) {
 
 template <typename OutType>
 bool Descriptor<OutType>::initialized() {
-    return (_input != nullptr && _normals != nullptr && _surface != nullptr
-    && _feature_indices != nullptr && _grid_indices != nullptr);
+    return (_input != nullptr && _normals != nullptr && _surface != nullptr);
 }
 

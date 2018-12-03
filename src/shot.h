@@ -4,7 +4,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "descriptor.h"
-#include "cuda_common.h"
+
+#include "cudaCommon.h"
 
 class SHOT:public Descriptor<pcl::SHOT352>{
 public:
@@ -15,8 +16,8 @@ public:
     using Descriptor<pcl::SHOT352>::_normals;
     using Descriptor<pcl::SHOT352>::_input;
     using Descriptor<pcl::SHOT352>::_surface;
-    using Descriptor<pcl::SHOT352>::_feature_indices;
-    using Descriptor<pcl::SHOT352>::_grid_indices;
+    using Descriptor<pcl::SHOT352>::_neighbor_indices;
+    using Descriptor<pcl::SHOT352>::_kept_indices;
 
     SHOT(int nr_shape_bins = 10) :Descriptor<pcl::SHOT352>(0.01),
                                   nr_shape_bins_ (nr_shape_bins),
@@ -26,6 +27,11 @@ public:
                                   maxAngularSectors_ (32),
                                   descLength_ (0){};
     virtual ~SHOT()override= default;
+
+    inline void setLRFPtr(const pcl::PointCloud<pcl::ReferenceFrame> &lrf){_lrf = lrf;}
+
+private:
+    pcl::PointCloud<pcl::ReferenceFrame> _lrf;
 
 protected:
 
