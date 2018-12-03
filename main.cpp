@@ -117,11 +117,11 @@ bool init(){
 
     (*scene_keypoints).points.clear();
     for (int i = 0 ; i < 2; ++i){
-        detectionInit(model, model_keypoints, model_normals, model_descriptors);
-        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
+//        detectionInit(model, model_keypoints, model_normals, model_descriptors);
+//        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
         detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
         std::cout << "---------------------------------------------------------" << std::endl;
-        std::cout << "---------------------------------------------------------" << std::endl;
+//        std::cout << "---------------------------------------------------------" << std::endl;
     }
 
 

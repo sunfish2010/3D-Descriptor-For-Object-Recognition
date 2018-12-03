@@ -20,7 +20,7 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
     float grid_res =  N > 300000? 0.03f:0.01f;
     IndicesPtr grid_indices(new std::vector<int>(N));
     IndicesPtr array_indices(new std::vector<int>(N));
-    IndicesPtr kept_indices(new std::vector<int>);
+//    std::vector<int> kept_indices;
     Grid grid;
     grid.setRadius(grid_res);
     grid.computeSceneProperty(model, grid_indices, array_indices);
@@ -29,24 +29,27 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
     Eigen::Vector4i min_pi = grid.getSceneMin();
 
     std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "Min is " << min_pi << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "Max is " << max_pi << std::endl;
-//    std::cout << "---------------------------------------------------------" << std::endl;
-//    std::cout << "The inverse radius is " << inv_radius << std::endl;
+    std::cout << "Min is " << min_pi << std::endl;
+    std::cout << "---------------------------------------------------------" << std::endl;
+    std::cout << "pc_dimension is " << pc_dimension << std::endl;
+    std::cout << "---------------------------------------------------------" << std::endl;
+    std::cout << "The inverse radius is " << inv_radius << std::endl;
 
 
     UniformDownSample filter;
 //
 //
-    filter.setKeptIndicesPtr(kept_indices);
+//    filter.setKeptIndicesPtr(kept_indices);
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 //    filter.downSample(model, model_keypoints, grid_indices, array_indices, inv_radius);
 ////    filter.randDownSample(model, model_keypoints);
-    filter.downSampleAtomic(model, model_keypoints, inv_radius, pc_dimension, min_pi);
+    filter.downSampleAtomic(model, inv_radius, pc_dimension, min_pi);
+//    filter.display(model, model_keypoints);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
+
+
 //
 //    Eigen::Vector4i pc_dimension;
 //

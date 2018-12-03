@@ -75,7 +75,9 @@ __global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eig
                                             float*min_dist, float*dist){
     int index = threadIdx.x + blockDim.x * blockIdx.x;
     if (index < N){
+//        printf("index is %d \n", index);
         PointType pt = pos[index];
+//        printf("1111111 \n");
         if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
             Eigen::Vector4i ijk(static_cast<int>(floor(pt.x * inv_radius[0])),
                                 static_cast<int>(floor(pt.y * inv_radius[1])), static_cast<int>(floor(pt.z * inv_radius[2])), 0);
@@ -83,9 +85,11 @@ __global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eig
                               + (pt.z - ijk[2]) * (pt.z - ijk[2]);
             Eigen::Vector4i offset = ijk - grid_min;
             int i = offset[0] + offset[1] * grid_res[0] + offset[2] * grid_res[0] * grid_res[1];
+//            printf("index i is %d \n", i);
             grid_indices[index] = i;
             dist[index] = curr_dist;
             atomicMin(&min_dist[i], curr_dist);
+//            printf("min dist is %f, curr dist is %f \n", min_dist[i], curr_dist);
         }
     }
 }
@@ -95,6 +99,7 @@ __global__ void kernDownSample(int N, const float *dist, const float *dist_min, 
     if (index < N ){
         if (dist[index] == dist_min[grid_indices[index]]){
             keep[index] = index;
+
         }
     }
 
@@ -128,19 +133,13 @@ __global__ void kernRandomDownSample(int N, float p, PointType* pos){
 
 
 UniformDownSample::~UniformDownSample() {
-    cudaFree(dev_grid_indices);
-    cudaFree(dev_array_indices);
-    cudaFree(dev_new_pc);
-    cudaFree(dev_pc);
-    cudaFree(dev_tmp);
-    cudaFree(dev_kept_indices);
-    cudaFree(dev_dist);
-    cudaFree(dev_min_dist);
+
     dev_grid_indices = NULL;
     dev_array_indices = NULL;
     dev_new_pc = NULL;
     dev_tmp = NULL;
     dev_pc = NULL;
+    kept_indices.clear();
 }
 
 
@@ -179,7 +178,7 @@ void UniformDownSample::randDownSample(const pcl::PointCloud<PointType>::ConstPt
  * **/
 
 void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr &input,
-        pcl::PointCloud<PointType>::Ptr &output, const IndicesPtr &grid_indices, const IndicesPtr &array_indices,
+        pcl::PointCloud<PointType>::Ptr &output, IndicesPtr &kept_indices,const  IndicesPtr &grid_indices, const IndicesPtr &array_indices,
         const Eigen::Vector4f &inv_radius ) {
     if (!input || !output || !kept_indices ){
         std::cerr << "function not properly initialized " << std::endl;
@@ -296,8 +295,14 @@ void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr &
 
 
 void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::ConstPtr &input,
-        pcl::PointCloud<PointType>::Ptr &output, const Eigen::Vector4f &inv_radius,
-        const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi ) {
+        const Eigen::Vector4f &inv_radius, const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi ) {
+
+    if (!input ){
+        std::cerr << "function not properly initialized " << std::endl;
+        exit(1);
+    }
+
+
     N = (int)(*input).size();
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
 
@@ -318,25 +323,33 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
 
     cudaMalloc((void**)&dev_grid_indices, N * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
-    cudaMalloc((void**)&dev_kept_indices, N * sizeof(int));
-    checkCUDAError("cudaMalloc dev_indices error");
-    cudaMemset(dev_kept_indices, -1, N * sizeof(int));
 
     cudaMalloc((void**)&dev_dist, N * sizeof(float));
     checkCUDAError("cudaMalloc dev_indices error");
     cudaMalloc((void**)&dev_min_dist, _grid_count_max * sizeof(float));
     checkCUDAError("cudaMalloc dev_indices error");
     thrust::device_ptr<float> dev_ptr(dev_min_dist);
-    thrust::fill(dev_ptr, dev_ptr + N, FLT_MAX);
-
+    thrust::fill(dev_ptr, dev_ptr + _grid_count_max , FLT_MAX);
+    checkCUDAError("thrust error");
     kernComputeIndicesDistances <<< fullBlockPerGrid_points, blockSize >>> (N, pc_dimension, min_pi,
             inv_radius, dev_pc, dev_grid_indices,  dev_min_dist, dev_dist);
     checkCUDAError("kernComputeIndices Failed");
 
+    cudaMalloc((void**)&dev_kept_indices, N * sizeof(int));
+    checkCUDAError("cudaMalloc dev_indices error");
+    cudaMemset(dev_kept_indices, -1, N * sizeof(int));
+
     kernDownSample<<< fullBlockPerGrid_points, blockSize>>>(N, dev_dist, dev_min_dist, dev_grid_indices,dev_kept_indices);
     checkCUDAError("kernDownSample Failed");
-    int * new_end = thrust::partition(thrust::device, dev_kept_indices, dev_kept_indices + N, isFirst());
-    int N_new = static_cast<int>(new_end - dev_kept_indices);
+    std::cout << "KernDOwnsample finished " << std::endl;
+    try{
+        int * new_end = thrust::partition(thrust::device, dev_kept_indices, dev_kept_indices + N, isFirst());
+        N_new = static_cast<int>(new_end - dev_kept_indices);
+    }
+    catch (thrust::system_error e){
+        std::cerr << "Error inside sort: " << e.what() << std::endl;
+        exit(1);
+    }
 
 
     cudaEventRecord(stop);
@@ -345,21 +358,37 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
     std::cout << "uniform subsampling takes: " << miliseconds << std::endl;
 
     std::cout << "---------------------------------------------------------" << std::endl;
+    kept_indices.resize(N_new);
+    cudaMemcpy(&kept_indices[0], dev_kept_indices, sizeof(int) * N_new, cudaMemcpyDeviceToHost);
+    checkCUDAError("memcpy kept_indices error");
 
     std::cout << N_new << std::endl;
 
+    cudaFree(dev_grid_indices);
+    cudaFree(dev_pc);
+    cudaFree(dev_kept_indices);
+    cudaFree(dev_dist);
+    cudaFree(dev_min_dist);
+
+}
+
+
+void UniformDownSample::display(const pcl::PointCloud<PointType>::ConstPtr &input, const pcl::PointCloud<PointType>::Ptr &output) {
     (*output).height = 1;
     (*output).is_dense = true;
     (*output).width = static_cast<uint32_t>(N_new);
     (*output).points.resize (static_cast<uint32_t>(N_new));
 
-    if (kept_indices){
-        (*kept_indices).resize(N_new);
-        cudaMemcpy(&(*kept_indices)[0], dev_kept_indices, sizeof(int) * N_new, cudaMemcpyDeviceToHost);
-        checkCUDAError("memcpy kept_indices error");
 
-        for (int & i : *kept_indices)
-            output->points.emplace_back(input->points[i]);
+//    IndicesPtr kept_indices = IndicesPtr(new std::vector<int>(N_new));
+    std::cout << "initialization" << std::endl;
+
+
+    for (int i = 0; i < N_new; i++){
+        (*output).points[i] = (*input).points[kept_indices[i]];
     }
+    std::cout << "copy is done" << std::endl;
 
 }
+
+
