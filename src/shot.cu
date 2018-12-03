@@ -1,5 +1,5 @@
 #include "shot.h"
-
+#include "shot_lrf.h"
 
 __global__ void computeBinDistShape(int N,const pcl::Normal* norms, const pcl::ReferenceFrame *lrf,
         double *bin_dist, int* neighbor_indices, const int n_bin, const int k){
@@ -98,7 +98,8 @@ __global__ void computeBinColorShape(int N, const PointType* surface, double *bi
 }
 
 
-void SHOT::computeDescriptor(const pcl::PointCloud<pcl::SHOT352> &output) {
+void SHOT::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eigen::Vector4f &inv_radius,
+                             const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) {
 
     descLength_ = nr_grid_sector_ * (nr_shape_bins_ + 1);
 
@@ -108,6 +109,18 @@ void SHOT::computeDescriptor(const pcl::PointCloud<pcl::SHOT352> &output) {
     radius1_2_ = _radius / 2;
 
     assert(descLength_ == 352);
+
+    // compute local reference
+    pcl::PointCloud<pcl::ReferenceFrame>::Ptr reference (new pcl::PointCloud<pcl::ReferenceFrame>);
+    SHOT_LRF lrf;
+    lrf.setRadius(_radius);
+    lrf.setInputCloud(_input);
+    lrf.setSurface(_surface);
+    lrf.setNormals(_normals);
+    lrf.setKeptIndices(_kept_indices);
+    lrf.compute(*reference, inv_radius, pc_dimension, min_pi);
+
+
 
     int N = static_cast<int> (_input->points.size());
     dim3 numThreadsPerBlock = (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));

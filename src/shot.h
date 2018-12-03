@@ -16,7 +16,7 @@ public:
     using Descriptor<pcl::SHOT352>::_normals;
     using Descriptor<pcl::SHOT352>::_input;
     using Descriptor<pcl::SHOT352>::_surface;
-    using Descriptor<pcl::SHOT352>::_neighbor_indices;
+//    using Descriptor<pcl::SHOT352>::_neighbor_indices;
     using Descriptor<pcl::SHOT352>::_kept_indices;
 
     SHOT(int nr_shape_bins = 10) :Descriptor<pcl::SHOT352>(0.01),
@@ -35,7 +35,8 @@ private:
 
 protected:
 
-    void computeDescriptor(const pcl::PointCloud<pcl::SHOT352> &output);
+    void computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output,  const Eigen::Vector4f &inv_radius,
+                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);
 
 
 

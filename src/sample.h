@@ -9,17 +9,17 @@ class UniformDownSample{
 public:
     UniformDownSample()= default;
     ~UniformDownSample();
-//    void setRadius(float radius);
-    //void downSample(const pcl::PointCloud<PointType >::ConstPtr input);
-    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output,
-                    IndicesPtr &kept_indices, const IndicesPtr &grid_indices, const IndicesPtr &array_indices,
-                    const Eigen::Vector4f &inv_radius);
-    void randDownSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output);
+//    void downSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output,
+//                    IndicesPtr &kept_indices, const IndicesPtr &grid_indices, const IndicesPtr &array_indices,
+//                    const Eigen::Vector4f &inv_radius);
+//    void randDownSample(const pcl::PointCloud<PointType >::ConstPtr &input, pcl::PointCloud<PointType>::Ptr &output);
     void downSampleAtomic(const pcl::PointCloud<PointType >::ConstPtr &input, const Eigen::Vector4f &inv_radius,
             const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);
-//    inline void setKeptIndicesPtr(const IndicesPtr &indices){ kept_indices = indices; }
 
     void display(const pcl::PointCloud<PointType >::ConstPtr &input, const pcl::PointCloud<PointType>::Ptr &output);
+
+    inline IndicesConstPtr getKeptIndice() {return boost::make_shared<const std::vector<int>>(kept_indices);}
+    inline IndicesConstPtr getGridIndices(){return IndicesConstPtr(&grid_indices);}
 
 private:
 //    float radius=0.f;
@@ -34,6 +34,7 @@ private:
     int *dev_tmp=NULL;
     PointType *dev_pc=NULL;
     std::vector<int> kept_indices;
+    std::vector<int> grid_indices;
 
 };
 

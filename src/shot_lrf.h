@@ -17,7 +17,7 @@ public:
     using Descriptor<pcl::ReferenceFrame>::_normals;
     using Descriptor<pcl::ReferenceFrame>::_input;
     using Descriptor<pcl::ReferenceFrame>::_surface;
-    using Descriptor<pcl::ReferenceFrame>::_neighbor_indices;
+//    using Descriptor<pcl::ReferenceFrame>::_neighbor_indices;
     using Descriptor<pcl::ReferenceFrame>::_kept_indices;
 
     SHOT_LRF()=default;
@@ -25,10 +25,11 @@ public:
 
 protected:
 
-    void computeDescriptor(const pcl::PointCloud<pcl::ReferenceFrame> &output);
+    void computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output,  const Eigen::Vector4f &inv_radius,
+                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);
 
 
-
+private:
 
 
 };

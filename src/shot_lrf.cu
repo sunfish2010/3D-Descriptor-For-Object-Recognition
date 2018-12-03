@@ -3,9 +3,22 @@
 //
 
 #include "shot_lrf.h"
+#include "search.h"
 
 
-void SHOT_LRF::computeDescriptor(const pcl::PointCloud<pcl::ReferenceFrame> &output) {
+void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, const Eigen::Vector4f &inv_radius,
+                                 const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) {
+    Search nn_search;
+    nn_search.setRadius(_radius);
+    nn_search.setSurface(_surface);
+    nn_search.setFeatures(_input);
+    nn_search.setFeaturesIndices(_kept_indices);
+    nn_search.search(inv_radius, pc_dimension, min_pi);
+    IndicesConstPtr numNeighbor = nn_search.getNumNeighbors();
+    IndicesConstPtr neighborIndices = nn_search.getNeighborIndices();
+//       boost::shared_ptr<const std::vector<float>> neighborDist = nn_search.getNeighborDistance();
+
+
     // now assume that for each pt, we already knew the neighbors within radius
 //    int N = static_cast<int>(_input->points.size());
 //    // it seems that the calculation for local reference is best calculated using cpu, mainly copying implementation
