@@ -44,7 +44,7 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
 //    filter.downSample(model, model_keypoints, grid_indices, array_indices, inv_radius);
 ////    filter.randDownSample(model, model_keypoints);
     filter.downSampleAtomic(model, inv_radius, pc_dimension, min_pi);
-//    filter.display(model, model_keypoints);
+    filter.display(model, model_keypoints);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
@@ -68,7 +68,7 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
     descrip_shot.setKeptIndices(kept_indices);
 //    descrip_shot.setGridIndices(grid_indices);
     descrip_shot.setSurface(model);
-    //descrip_shot.compute(*model_descriptors);
+    descrip_shot.compute(*model_descriptors, inv_radius, pc_dimension, min_pi);
 
 
 }

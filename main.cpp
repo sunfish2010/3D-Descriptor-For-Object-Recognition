@@ -226,7 +226,7 @@ void detection_cpu(){
     std::cout << "Model total points: " << model->size () << "; Selected Keypoints: " << model_keypoints->size () << std::endl;
 
     uniform_sampling.setInputCloud (scene);
-    uniform_sampling.setRadiusSearch (0.035f);
+    uniform_sampling.setRadiusSearch (0.02f);
     uniform_sampling.filter (*scene_keypoints);
     std::cout << "Scene total points: " << scene->size () << "; Selected Keypoints: " << scene_keypoints->size () << std::endl;
 

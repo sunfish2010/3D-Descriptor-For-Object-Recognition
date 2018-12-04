@@ -30,6 +30,20 @@ protected:
 
 
 private:
+//    int *dev_neighbor_indices;
+    int *dev_features_indices;
+//    int *dev_grid_indices;
+    PointType *dev_pos_surface;
+    int *dev_num_neighbors;
+//    float *dev_distances;
+    Eigen::Matrix3d* dev_cov;
+    int _N_features;
+    int _N_surface;
 
+    std::vector<int> _num_neighbors;
+    std::vector<int> _neighbor_indices;
+    std::vector<float> _neighbor_distances;
+    /** \brief inner max neighbor to keep */
+    const int _n = 16;
 
 };

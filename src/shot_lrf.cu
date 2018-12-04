@@ -8,14 +8,64 @@
 
 void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, const Eigen::Vector4f &inv_radius,
                                  const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) {
-    Search nn_search;
-    nn_search.setRadius(_radius);
-    nn_search.setSurface(_surface);
-    nn_search.setFeatures(_input);
-    nn_search.setFeaturesIndices(_kept_indices);
-    nn_search.search(inv_radius, pc_dimension, min_pi);
-    IndicesConstPtr numNeighbor = nn_search.getNumNeighbors();
-    IndicesConstPtr neighborIndices = nn_search.getNeighborIndices();
+    _N_features = static_cast<int>(_input->points.size());
+    _N_surface = static_cast<int>(_surface->points.size());
+    if (!_N_surface || !_N_features){
+        std::cerr << "input not properly set up for shor lrf" << std::endl;
+        exit(1);
+    }
+
+    cudaMalloc((void**)&dev_features_indices, _N_features * sizeof(int));
+    checkCUDAError("mallod dev_features_indices error");
+    cudaMemcpy(dev_features_indices, &(*_kept_indices)[0], _N_features * sizeof(int), cudaMemcpyHostToDevice);
+    checkCUDAError("memcpy dev_features_indices error");
+//    cudaMalloc((void**)&dev_neighbor_indices, _N_features * _n * sizeof(int));
+//    checkCUDAError("malloc dev_neighbor indices error");
+//    cudaMemset(dev_neighbor_indices, -1, _N_features * _n * sizeof(int));
+//    checkCUDAError("memset ni error");
+//    cudaMalloc((void**)&dev_distances, _N_features * _n * sizeof(int));
+//    checkCUDAError("malloc dev_neighbor distances error");
+
+    cudaMalloc((void**)&dev_pos_surface, _N_surface * sizeof(PointType));
+    checkCUDAError("malloc dps error");
+    cudaMemcpy(dev_pos_surface, &(_surface->points[0]), _N_surface * sizeof(PointType), cudaMemcpyHostToDevice);
+    checkCUDAError("memcpy ps error");
+
+    cudaMalloc((void**)&dev_num_neighbors, _N_features * sizeof(int));
+    checkCUDAError("malloc num neighbors error");
+    cudaMemset(dev_num_neighbors, 0, sizeof(int) * _N_features);
+    checkCUDAError("memset num neighbors error");
+
+    cudaMalloc((void**)&dev_cov, _N_features * sizeof(Eigen::Matrix3d));
+    checkCUDAError("cudamalloc cov error");
+
+    dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((_N_surface + blockSize - 1)/blockSize));
+
+    kernSearchRadius<<<fullBlockPerGrid_points, blockSize, _N_features * sizeof(u_int8_t) * 6>>> (_N_surface, _N_features,
+            _n, dev_pos_surface, _radius, dev_features_indices, inv_radius, min_p, dev_neighbor_indices, dev_num_neighbors,
+            dev_distances);
+    checkCUDAError("KernSearchRadius error");
+
+//    _num_neighbors.resize(_N_features);
+//    cudaMemcpy(&_num_neighbors[0], dev_num_neighbors, sizeof(int) * _N_features, cudaMemcpyDeviceToHost);
+//    checkCUDAError("cudamemcpy  num neigbors issue");
+//
+//    _neighbor_indices.resize(_n * _N_features);
+//    cudaMemcpy(&_neighbor_indices[0], dev_neighbor_indices, sizeof(int) * _N_features * _n, cudaMemcpyDeviceToHost);
+//    checkCUDAError("cudamemcpy  num neigbors issue");
+//
+//    _neighbor_distances.resize(_n * _N_features);
+//    cudaMemcpy(&_neighbor_distances[0], dev_distances, sizeof(float) * _N_features * _n, cudaMemcpyDeviceToHost);
+//    checkCUDAError("cudamemcpy  distances issue");
+
+//    Search nn_search;
+//    nn_search.setRadius(_radius * 0.5);
+//    nn_search.setSurface(_surface);
+//    nn_search.setFeatures(_input);
+//    nn_search.setFeaturesIndices(_kept_indices);
+//    nn_search.search(inv_radius, pc_dimension, min_pi);
+//    IndicesConstPtr numNeighbor = nn_search.getNumNeighbors();
+//    IndicesConstPtr neighborIndices = nn_search.getNeighborIndices();
 //       boost::shared_ptr<const std::vector<float>> neighborDist = nn_search.getNeighborDistance();
 
 

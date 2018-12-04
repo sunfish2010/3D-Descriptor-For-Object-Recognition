@@ -48,11 +48,12 @@ void Descriptor<OutType>::compute(PointCloudOut &output,  const Eigen::Vector4f 
     output.width= _input->width;
     output.height= _input->height;
     output.is_dense = _input->is_dense;
+    computeDescriptor(output, inv_radius, pc_dimension, min_pi);
 
 }
 
 template <typename OutType>
 bool Descriptor<OutType>::initialized() {
-    return (_input != nullptr && _normals != nullptr && _surface != nullptr && _radius > 0 && !_kept_indices);
+    return (_input != nullptr && _normals != nullptr && _surface != nullptr && _radius >0 && _kept_indices!= nullptr);
 }
 

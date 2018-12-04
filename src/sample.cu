@@ -96,9 +96,9 @@ __global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eig
 __global__ void kernDownSample(int N, const float *dist, const float *dist_min, int *grid_indices,  int* keep){
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if (index < N ){
-        if (dist[index] == dist_min[grid_indices[index]]){
-            keep[index] = index;
-
+        int grid_i = grid_indices[index];
+        if (dist[index] == dist_min[grid_i]){
+            keep[grid_i] = index;
         }
     }
 
@@ -334,15 +334,16 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
             inv_radius, dev_pc, dev_grid_indices,  dev_min_dist, dev_dist);
     checkCUDAError("kernComputeIndices Failed");
 
-    cudaMalloc((void**)&dev_kept_indices, N * sizeof(int));
+    cudaMalloc((void**)&dev_kept_indices, _grid_count_max * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
-    cudaMemset(dev_kept_indices, -1, N * sizeof(int));
+    cudaMemset(dev_kept_indices, -1, _grid_count_max * sizeof(int));
+    checkCUDAError("memset error Failed");
 
     kernDownSample<<< fullBlockPerGrid_points, blockSize>>>(N, dev_dist, dev_min_dist, dev_grid_indices,dev_kept_indices);
     checkCUDAError("kernDownSample Failed");
     std::cout << "KernDOwnsample finished " << std::endl;
     try{
-        int * new_end = thrust::partition(thrust::device, dev_kept_indices, dev_kept_indices + N, isFirst());
+        int * new_end = thrust::partition(thrust::device, dev_kept_indices, dev_kept_indices + _grid_count_max, isFirst());
         N_new = static_cast<int>(new_end - dev_kept_indices);
     }
     catch (thrust::system_error e){
@@ -361,9 +362,9 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
     cudaMemcpy(&kept_indices[0], dev_kept_indices, sizeof(int) * N_new, cudaMemcpyDeviceToHost);
     checkCUDAError("memcpy kept_indices error");
 
-    grid_indices.resize(N);
-    cudaMemcpy(&grid_indices[0], dev_grid_indices, sizeof(int) * N, cudaMemcpyDeviceToHost);
-    checkCUDAError("cudamemcpy grid_indices error");
+//    grid_indices.resize(N);
+//    cudaMemcpy(&grid_indices[0], dev_grid_indices, sizeof(int) * N, cudaMemcpyDeviceToHost);
+//    checkCUDAError("cudamemcpy grid_indices error");
 
     std::cout << N_new << std::endl;
 
