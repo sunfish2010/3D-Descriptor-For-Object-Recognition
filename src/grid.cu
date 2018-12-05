@@ -98,6 +98,7 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
 
     cudaEventRecord(start);
     cudaMalloc((void**) &dev_pc, N * sizeof(PointType));
+    checkCUDAError("cudaMalloc pc error");
     cudaMemcpy(dev_pc, &(*input).points[0], N * sizeof(PointType), cudaMemcpyHostToDevice);
     checkCUDAError("cudaMemcpy pc");
     cudaEventRecord(stop);
@@ -168,6 +169,7 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
         checkCUDAError("kernCopy array indices failed");
     }
 
+//    checkCUDAError("cuda free error");
 
 }
 
@@ -175,7 +177,6 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
 Grid::~Grid() {
     cudaFree(dev_array_indices);
     cudaFree(dev_grid_indices);
-    cudaFree(dev_min);
-    cudaFree(dev_max);
     cudaFree(dev_pc);
+    checkCUDAError("cuda free error");
 }

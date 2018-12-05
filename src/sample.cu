@@ -88,7 +88,7 @@ __global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eig
             grid_indices[index] = i;
             dist[index] = curr_dist;
             atomicMin(&min_dist[i], curr_dist);
-//            printf("min dist is %f, curr dist is %f \n", min_dist[i], curr_dist);
+//            printf("min dist is %f, curr dist is %f, index is %d \n", min_dist[i], curr_dist, grid_indices[index]);
         }
     }
 }
@@ -97,6 +97,8 @@ __global__ void kernDownSample(int N, const float *dist, const float *dist_min, 
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if (index < N ){
         int grid_i = grid_indices[index];
+//        if (grid_i != 0)
+//            printf("index is %d, kernDOwnsample grid_i is %d\n", index, grid_indices[index]);
         if (dist[index] == dist_min[grid_i]){
             keep[grid_i] = index;
         }
@@ -335,6 +337,8 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
             inv_radius, dev_pc, dev_grid_indices,  dev_min_dist, dev_dist);
     checkCUDAError("kernComputeIndices Failed");
 
+//    cudaFree(dev_pc);
+
     cudaMalloc((void**)&dev_kept_indices, _grid_count_max * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
     cudaMemset(dev_kept_indices, -1, _grid_count_max * sizeof(int));
@@ -367,6 +371,9 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
 //    cudaMemcpy(&grid_indices[0], dev_grid_indices, sizeof(int) * N, cudaMemcpyDeviceToHost);
 //    checkCUDAError("cudamemcpy grid_indices error");
 
+//    for (auto &i:grid_indices)
+//        std::cout << i << std::endl;
+
     std::cout << N_new << std::endl;
 
     cudaFree(dev_grid_indices);
@@ -374,6 +381,7 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
     cudaFree(dev_kept_indices);
     cudaFree(dev_dist);
     cudaFree(dev_min_dist);
+    checkCUDAError("cuda free");
 
 }
 

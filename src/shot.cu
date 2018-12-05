@@ -111,41 +111,42 @@ void SHOT::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eigen:
     assert(descLength_ == 352);
 
     // compute local reference
-    pcl::PointCloud<pcl::ReferenceFrame>::Ptr reference (new pcl::PointCloud<pcl::ReferenceFrame>);
+    pcl::PointCloud<pcl::ReferenceFrame> local_ref;
+
     SHOT_LRF lrf;
     lrf.setRadius(_radius);
     lrf.setInputCloud(_input);
     lrf.setSurface(_surface);
     lrf.setNormals(_normals);
     lrf.setKeptIndices(_kept_indices);
-    lrf.compute(*reference, inv_radius, pc_dimension, min_pi);
+    lrf.compute(local_ref, inv_radius, pc_dimension, min_pi);
 
 
-
-    int N = static_cast<int> (_input->points.size());
-    dim3 numThreadsPerBlock = (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
-
-    int *dev_kept_indices = NULL;
-    cudaMalloc((void**)&dev_kept_indices, N * sizeof(int));
-    checkCUDAError("cuda malloc kept indices error");
-    cudaMemcpy(dev_kept_indices, &(*_kept_indices)[0], N * sizeof(int), cudaMemcpyHostToDevice);
-    checkCUDAError("cuda memcpy kept_indices error");
-
-    pcl::ReferenceFrame *dev_lrf = NULL;
-    cudaMalloc((void**)&dev_lrf, N * sizeof (pcl::ReferenceFrame));
-    checkCUDAError("cuda malloc dev_lrf error");
-    cudaMemcpy(dev_lrf, &_lrf.points[0], N * sizeof(pcl::ReferenceFrame), cudaMemcpyHostToDevice);
-    checkCUDAError("cuda Memcpy lrf error");
-
-    int *dev_normals = NULL;
-    int N_surface = static_cast<int>( _surface->points.size());
-    cudaMalloc((void**)&dev_normals, sizeof(pcl::Normal) * N_surface);
-    checkCUDAError("cuda malloc dev_normals error");
-    cudaMemcpy(dev_normals, &_normals->points[0], N_surface * sizeof(pcl::Normal), cudaMemcpyHostToDevice);
-    checkCUDAError("cuda memcpy dev_normals error");
-
-    double *dev_bin_distance = NULL;
-    cudaMalloc((void**)&dev_bin_distance, N * _k * sizeof(double));
+//
+//    int N = static_cast<int> (_input->points.size());
+//    dim3 numThreadsPerBlock = (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
+//
+//    int *dev_kept_indices = NULL;
+//    cudaMalloc((void**)&dev_kept_indices, N * sizeof(int));
+//    checkCUDAError("cuda malloc kept indices error");
+//    cudaMemcpy(dev_kept_indices, &(*_kept_indices)[0], N * sizeof(int), cudaMemcpyHostToDevice);
+//    checkCUDAError("cuda memcpy kept_indices error");
+//
+//    pcl::ReferenceFrame *dev_lrf = NULL;
+//    cudaMalloc((void**)&dev_lrf, N * sizeof (pcl::ReferenceFrame));
+//    checkCUDAError("cuda malloc dev_lrf error");
+//    cudaMemcpy(dev_lrf, &_lrf.points[0], N * sizeof(pcl::ReferenceFrame), cudaMemcpyHostToDevice);
+//    checkCUDAError("cuda Memcpy lrf error");
+//
+//    int *dev_normals = NULL;
+//    int N_surface = static_cast<int>( _surface->points.size());
+//    cudaMalloc((void**)&dev_normals, sizeof(pcl::Normal) * N_surface);
+//    checkCUDAError("cuda malloc dev_normals error");
+//    cudaMemcpy(dev_normals, &_normals->points[0], N_surface * sizeof(pcl::Normal), cudaMemcpyHostToDevice);
+//    checkCUDAError("cuda memcpy dev_normals error");
+//
+//    double *dev_bin_distance = NULL;
+//    cudaMalloc((void**)&dev_bin_distance, N * _k * sizeof(double));
 
 
 

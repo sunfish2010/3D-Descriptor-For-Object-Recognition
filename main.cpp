@@ -61,10 +61,10 @@ bool init(){
     }
 #endif
 
-    viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer> (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    // model
-
-    viewer->setBackgroundColor(0, 0, 0);
+//    viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer> (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+//    // model
+//
+//    viewer->setBackgroundColor(0, 0, 0);
 
 #if GPU
     //pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
@@ -72,7 +72,7 @@ bool init(){
     pcl::PointCloud<PointType>::Ptr off_scene_model (new pcl::PointCloud<PointType> ());
     pcl::transformPointCloud (*model, *off_scene_model, Eigen::Vector3f (-1,0,0), Eigen::Quaternionf (1, 0, 0, 0));
     pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(off_scene_model);
-    viewer->addPointCloud(off_scene_model, rgb, "model");
+//    viewer->addPointCloud(off_scene_model, rgb, "model");
     //rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
     //viewer->addPointCloud(scene, rgb, "scene");
 
@@ -116,23 +116,28 @@ bool init(){
 #endif
 
     (*scene_keypoints).points.clear();
+    (*model_keypoints).points.clear();
     for (int i = 0 ; i < 2; ++i){
-//        detectionInit(model, model_keypoints, model_normals, model_descriptors);
-//        std::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << std::endl;
-        detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
+        detectionInit(model, model_keypoints, model_normals, model_descriptors);
         std::cout << "---------------------------------------------------------" << std::endl;
-//        std::cout << "---------------------------------------------------------" << std::endl;
+        std::cout << "Model total points GPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
+        std::cout << "---------------------------------------------------------" << std::endl;
+//        detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
+        std::cout << "---------------------------------------------------------" << std::endl;
+        std::cout << "Model total points GPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
+        std::cout << "---------------------------------------------------------" << std::endl;
+
+
     }
 
 
-    std::cout << "---------------------------------------------------------" << std::endl;
-    std::cout << "Model total points GPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
-    std::cout << "---------------------------------------------------------" << std::endl;
-    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene_keypoints);
-    viewer->addPointCloud(scene_keypoints, rgb, "scene_keypoints");
-    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
-    viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "model");
+
+
+//    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene_keypoints);
+//    viewer->addPointCloud(scene_keypoints, rgb, "scene_keypoints");
+//    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
+//    viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
+//    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "model");
 
 //    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "scene");
 #endif
@@ -150,9 +155,9 @@ bool init(){
 
 
 
-    viewer->addCoordinateSystem(1.0);
-    viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
-    viewer->registerMouseCallback(mouseCallback, (void*) viewer.get());
+//    viewer->addCoordinateSystem(1.0);
+//    viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
+//    viewer->registerMouseCallback(mouseCallback, (void*) viewer.get());
 
     // TODO:: Initialization for GPU
 
@@ -167,21 +172,21 @@ void mainLoop(){
 #endif
 
     // TODO:: Change visualization spin time laps
-    while(!viewer->wasStopped()){
-        viewer->spinOnce(100);
-        boost::this_thread::sleep(boost::posix_time::microseconds(100000));
-
-//        pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
-//        normal_est.setKSearch(10);
-//        normal_est.setInputCloud(scene);
-//        normal_est.compute(*scene_normals);
-
-        // TODO :: run CUDA
-#if GPU
-        runCUDA();
-#endif
-        //display();
-    }
+//    while(!viewer->wasStopped()){
+//        viewer->spinOnce(100);
+//        boost::this_thread::sleep(boost::posix_time::microseconds(100000));
+//
+////        pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
+////        normal_est.setKSearch(10);
+////        normal_est.setInputCloud(scene);
+////        normal_est.compute(*scene_normals);
+//
+//        // TODO :: run CUDA
+//#if GPU
+//        runCUDA();
+//#endif
+//        //display();
+//    }
 
 }
 
