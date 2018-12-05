@@ -35,7 +35,7 @@ private:
 //    int *dev_grid_indices;
     PointType *dev_pos_surface;
     int *dev_num_neighbors;
-//    float *dev_distances;
+    double *dev_sum;
     Eigen::Matrix3d* dev_cov;
     int _N_features;
     int _N_surface;

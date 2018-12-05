@@ -3,7 +3,89 @@
 //
 
 #include "shot_lrf.h"
-#include "search.h"
+
+__device__ Eigen::Vector4f getVector4f(PointType pt){
+    return Eigen::Vector4f(pt.x, pt.y, pt.z, 0.f);
+}
+
+__device__ Eigen::Vector4d Vector4f2Vector4d(Eigen::Vector4f pt){
+    return Eigen::Vector4d(static_cast<double>(pt[0]), static_cast<double>(pt[1]), static_cast<double>(pt[2]),
+            static_cast<double>(pt[3]));
+}
+
+
+// somehow if i don't include the implementation, it complains not definition
+// while if I implement it complains about existing implementation so changed name
+#if __CUDA_ARCH__ < 600
+__device__ double AtomicAdd(double *address, double val){
+    unsigned long long int *address_as_ull = (unsigned long long int*) address;
+    unsigned long long int old = *address_as_ull, assumed;
+    do{
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed, __double_as_longlong(val + __longlong_as_double(assumed)));
+    }while(assumed != old);
+    return __longlong_as_double(old);
+}
+
+#endif
+
+
+__global__ void kernComputeCov(int N, int n, const PointType *surface, const float radius, const int *feature_indices,
+        const Eigen::Vector4f inv_radius, const Eigen::Vector4i min_pi, int* num_neighbors, Eigen::Matrix3d* cov,
+        double *sum){
+    extern __shared__ uint8_t search_range[];
+    int index = threadIdx.x + blockDim.x * blockIdx.x;
+    if (index < n) {
+        PointType pt = surface[feature_indices[index]];
+        search_range[index] = static_cast<u_int8_t >(floor((pt.x - radius) * inv_radius[0]) - min_pi[0]);
+        search_range[index + 1] = static_cast<u_int8_t >(floor((pt.y - radius) * inv_radius[1]) - min_pi[1]);
+        search_range[index + 2] = static_cast<u_int8_t >(floor((pt.z - radius) * inv_radius[2]) - min_pi[2]);
+        search_range[index + 3] = static_cast<u_int8_t >(floor((pt.x + radius) * inv_radius[0]) - min_pi[0]);
+        search_range[index + 4] = static_cast<u_int8_t >(floor((pt.y + radius) * inv_radius[1]) - min_pi[1]);
+        search_range[index + 5] = static_cast<u_int8_t >(floor((pt.z + radius) * inv_radius[2]) - min_pi[2]);
+    }
+    __syncthreads();
+    if (index < N) {
+        PointType pt = surface[index];
+        if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)) {
+            uint8_t i = static_cast<uint8_t >(floor(pt.x * inv_radius[0]) - min_pi[0]);
+            uint8_t j = static_cast<uint8_t >(floor(pt.y * inv_radius[1]) - min_pi[1]);
+            uint8_t k = static_cast<uint8_t >(floor(pt.z * inv_radius[2]) - min_pi[2]);
+//            float curr_dist = (pt.x - i) * (pt.x - i) + (pt.y - j) * (pt.y - j) + (pt.z - k) * (pt.z - k);
+            for (int idx = 0; idx < n; ++idx) {
+                PointType central_point = surface[feature_indices[idx]];
+                double distance;
+                if (i >= search_range[idx] && i <= search_range[idx + 3]
+                    && j >= search_range[idx + 1] && j <= search_range[idx + 4]
+                    && k >= search_range[idx + 2] && k <= search_range[idx + 5]
+                    && !(pt.x == central_point.x && pt.y == central_point.y && pt.z == central_point.z)) {
+
+                    Eigen::Vector4d vij = Eigen::Vector4d(static_cast<double>(pt.x - central_point.x),
+                        static_cast<double>(pt.y - central_point.y), static_cast<double>(pt.z - central_point.z), 0.0);
+
+                    distance = radius - sqrt (vij[0]*vij[0] + vij[1] * vij[1] + vij[2] * vij[2]);
+                        // Multiply vij * vij'
+                    AtomicAdd(&cov[idx](0,0), vij[0] * vij[0]);
+                    AtomicAdd(&cov[idx](0,1), vij[0] * vij[1]);
+                    AtomicAdd(&cov[idx](0,2), vij[0] * vij[2]);
+
+                    AtomicAdd(&cov[idx](1,0), vij[1] * vij[0]);
+                    AtomicAdd(&cov[idx](1,1), vij[1] * vij[1]);
+                    AtomicAdd(&cov[idx](1,2), vij[1] * vij[2]);
+
+                    AtomicAdd(&cov[idx](2,0), vij[2] * vij[0]);
+                    AtomicAdd(&cov[idx](2,1), vij[2] * vij[1]);
+                    AtomicAdd(&cov[idx](2,2), vij[2] * vij[2]);
+
+                    atomicAdd(&num_neighbors[idx],1);
+                    AtomicAdd(&sum[idx], distance);
+
+
+                }
+            }
+        }
+    }
+}
 
 
 void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, const Eigen::Vector4f &inv_radius,
@@ -19,12 +101,6 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
     checkCUDAError("mallod dev_features_indices error");
     cudaMemcpy(dev_features_indices, &(*_kept_indices)[0], _N_features * sizeof(int), cudaMemcpyHostToDevice);
     checkCUDAError("memcpy dev_features_indices error");
-//    cudaMalloc((void**)&dev_neighbor_indices, _N_features * _n * sizeof(int));
-//    checkCUDAError("malloc dev_neighbor indices error");
-//    cudaMemset(dev_neighbor_indices, -1, _N_features * _n * sizeof(int));
-//    checkCUDAError("memset ni error");
-//    cudaMalloc((void**)&dev_distances, _N_features * _n * sizeof(int));
-//    checkCUDAError("malloc dev_neighbor distances error");
 
     cudaMalloc((void**)&dev_pos_surface, _N_surface * sizeof(PointType));
     checkCUDAError("malloc dps error");
@@ -38,12 +114,15 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
 
     cudaMalloc((void**)&dev_cov, _N_features * sizeof(Eigen::Matrix3d));
     checkCUDAError("cudamalloc cov error");
+    //  TODO: change this to thrust implementation
+    thrust::device_ptr<Eigen::Matrix3d> dev_ptr(dev_cov);
+    thrust::fill(dev_ptr, dev_ptr + _N_features , Eigen::Matrix3d::Zero());
+    checkCUDAError("thrust memset cov error");
 
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((_N_surface + blockSize - 1)/blockSize));
 
-    kernSearchRadius<<<fullBlockPerGrid_points, blockSize, _N_features * sizeof(u_int8_t) * 6>>> (_N_surface, _N_features,
-            _n, dev_pos_surface, _radius, dev_features_indices, inv_radius, min_p, dev_neighbor_indices, dev_num_neighbors,
-            dev_distances);
+    kernComputeCov<<<fullBlockPerGrid_points, blockSize, _N_features * sizeof(u_int8_t) * 6>>> (_N_surface, _N_features,
+            dev_pos_surface, _radius, dev_features_indices, inv_radius, min_pi,  dev_num_neighbors, dev_cov, dev_sum);
     checkCUDAError("KernSearchRadius error");
 
 //    _num_neighbors.resize(_N_features);

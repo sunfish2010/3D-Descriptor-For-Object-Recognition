@@ -330,6 +330,7 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
     thrust::device_ptr<float> dev_ptr(dev_min_dist);
     thrust::fill(dev_ptr, dev_ptr + _grid_count_max , FLT_MAX);
     checkCUDAError("thrust error");
+
     kernComputeIndicesDistances <<< fullBlockPerGrid_points, blockSize >>> (N, pc_dimension, min_pi,
             inv_radius, dev_pc, dev_grid_indices,  dev_min_dist, dev_dist);
     checkCUDAError("kernComputeIndices Failed");
