@@ -1,7 +1,6 @@
 //
 // Created by sun on 11/26/18.
 //
-
 #include "shot_lrf.h"
 #include <Eigen/Eigenvalues>
 __device__ Eigen::Vector4f getVector4f(PointType pt){
@@ -71,132 +70,55 @@ __global__ void kernRadiusSearch(int N, int n, const PointType *surface, const f
     }
 }
 
+__device__ Eigen::Matrix3d computevij(Eigen::Vector3d vij){
+    Eigen::Matrix3d output;
+    output(0,0) =  vij[0] * vij[0];
+    output(0,1) =  vij[0] * vij[1];
+    output(0,2) =  vij[0] * vij[2];
 
+    output(1,0) =  vij[1] * vij[0];
+    output(1,1) =  vij[1] * vij[1];
+    output(1,2) =  vij[1] * vij[2];
+
+    output(2,0) =  vij[2] * vij[0];
+    output(2,1) =  vij[2] * vij[1];
+    output(2,2) =  vij[2] * vij[2];
+    return output;
+}
 
 __global__ void kernComputeLF(int N, int n, const PointType * surface,const int* num_neighbors,const int * feature_indices,
-      const bool* connected, const int radius, Eigen::Matrix3f* rf ){
+      const bool* connected, const int radius, Eigen::Vector3d* vij, Eigen::Matrix3d *covs ){
+    const int max_n = 128;
     int index = threadIdx.x + blockDim.x * blockIdx.x;
     if (index < n) {
         PointType central_point = surface[feature_indices[index]];
-        if (num_neighbors[index] > 5) {
-            Eigen::MatrixXd vij(num_neighbors[index], 4);
+        if (num_neighbors[index] >= max_n) {
+//            printf("num neighbor: %d, index is %d \n", num_neighbors[index], index);
             Eigen::Matrix3d cov_m = Eigen::Matrix3d::Zero();
             int valid_nn_points = 0;
             double sum = 0;
             for (int i = 0; i < N; i++) {
                 if (connected[index * N + i]) {
-                    PointType pt = surface[index];
-                    vij.row(valid_nn_points).matrix() = Eigen::Vector4d(static_cast<double>(pt.x - central_point.x),
-                        static_cast<double>(pt.y - central_point.y), static_cast<double>(pt.z - central_point.z), 0.0);;
+                    PointType pt = surface[feature_indices[index]];
+                    vij[max_n*index + valid_nn_points] = Eigen::Vector3d(static_cast<double>(pt.x - central_point.x),
+                        static_cast<double>(pt.y - central_point.y), static_cast<double>(pt.z - central_point.z));
 
-                   double distance = radius - sqrt (vij(valid_nn_points,0)*vij(valid_nn_points,0)
-                           + vij(valid_nn_points,1) * vij(valid_nn_points,1)
-                           + vij(valid_nn_points,2) * vij(valid_nn_points,2));
-                   cov_m += distance * (vij.row (valid_nn_points).head<3> ().transpose () * vij.row (valid_nn_points).head<3> ());
+                   double distance = radius - sqrt (vij[max_n*index + valid_nn_points][0]*vij[max_n*index + valid_nn_points][0]
+                           + vij[max_n*index + valid_nn_points][1] *vij[max_n*index + valid_nn_points][1]
+                           + vij[max_n*index + valid_nn_points][2] * vij[max_n*index + valid_nn_points][2]);
+
+                   cov_m += distance * computevij(vij[max_n*index + valid_nn_points]);
                    sum += distance;
                    valid_nn_points++;
+                   if (valid_nn_points >=max_n)
+                       break;
                 }
             }
             cov_m /= sum;
-//
-            Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver (cov_m);
-//
-            const double& e1c = solver.eigenvalues ()[0];
-            const double& e2c = solver.eigenvalues ()[1];
-            const double& e3c = solver.eigenvalues ()[2];
-
-            if (isfinite (e1c) || isfinite (e2c) || isfinite (e3c)){
-                 //Disambiguation
-                Eigen::Vector4d v1 = Eigen::Vector4d::Zero ();
-                Eigen::Vector4d v3 = Eigen::Vector4d::Zero ();
-                v1.head<3> ().matrix () = solver.eigenvectors ().col (2);
-                v3.head<3> ().matrix () = solver.eigenvectors ().col (0);
-
-                int plusNormal = 0, plusTangentDirection1=0;
-                for (int ne = 0; ne < valid_nn_points; ne++)
-                {
-                    double dp = vij.row (ne).dot (v1);
-                    if (dp >= 0)
-                        plusTangentDirection1++;
-
-                    dp = vij.row (ne).dot (v3);
-                    if (dp >= 0)
-                        plusNormal++;
-                }
-                //TANGENT
-                plusTangentDirection1 = 2*plusTangentDirection1 - valid_nn_points;
-                if (plusTangentDirection1 == 0)
-                {
-                    int points = 5;
-                    int medianIndex = valid_nn_points/2;
-
-                    for (int i = -points/2; i <= points/2; i++)
-                        if ( vij.row (medianIndex - i).dot (v1) > 0)
-                            plusTangentDirection1 ++;
-
-                    if (plusTangentDirection1 < points/2+1)
-                        v1 *= - 1;
-                }
-                else if (plusTangentDirection1 < 0)
-                    v1 *= - 1;
-
-                //Normal
-                plusNormal = 2*plusNormal - valid_nn_points;
-                if (plusNormal == 0)
-                {
-                    int points = 5;
-                    int medianIndex = valid_nn_points/2;
-
-                    for (int i = -points/2; i <= points/2; i++)
-                        if ( vij.row (medianIndex - i).dot (v3) > 0)
-                            plusNormal ++;
-
-                    if (plusNormal < points/2+1)
-                        v3 *= - 1;
-                } else if (plusNormal < 0)
-                    v3 *= - 1;
-                Eigen::Matrix3f rf_tmp;
-                rf_tmp(0, 0) = static_cast<float>(v1[0]);
-                rf_tmp(0, 1) = static_cast<float>(v1[1]);
-                rf_tmp(0, 2) = static_cast<float>(v1[2]);
-                rf_tmp(2, 0) = static_cast<float>(v3[0]);
-                rf_tmp(2, 1) = static_cast<float>(v3[1]);
-                rf_tmp(2, 2) = static_cast<float>(v3[2]);
-                rf_tmp.row (1).matrix () = rf_tmp.row (2).cross (rf_tmp.row (0));
-                rf[index] = rf_tmp;
-            }
-
-//
-//
-//
-//
-//
-//        for(int i = 0; i < 3; ++i){
-//            output[idx].x_axis = rf.rows(0)[d];
-//            output[idx].y_axis = rf.rows(1)[d];
-//            output[idx].z_axis = rf.rows(2)[d];
-//        }
+            covs[index] = cov_m;
         }
     }
-//                                Eigen::Vector4d vij = Eigen::Vector4d(static_cast<double>(pt.x - central_point.x),
-//                        static_cast<double>(pt.y - central_point.y), static_cast<double>(pt.z - central_point.z), 0.0);
-//
-//                    double distance = radius - sqrt (vij[0]*vij[0] + vij[1] * vij[1] + vij[2] * vij[2]);
-//                        // Multiply vij * vij'
-//                    AtomicAdd(&cov[idx](0,0), vij[0] * vij[0]);
-//                    AtomicAdd(&cov[idx](0,1), vij[0] * vij[1]);
-//                    AtomicAdd(&cov[idx](0,2), vij[0] * vij[2]);
-//
-//                    AtomicAdd(&cov[idx](1,0), vij[1] * vij[0]);
-//                    AtomicAdd(&cov[idx](1,1), vij[1] * vij[1]);
-//                    AtomicAdd(&cov[idx](1,2), vij[1] * vij[2]);
-//
-//                    AtomicAdd(&cov[idx](2,0), vij[2] * vij[0]);
-//                    AtomicAdd(&cov[idx](2,1), vij[2] * vij[1]);
-//                    AtomicAdd(&cov[idx](2,2), vij[2] * vij[2]);
-//                    printf(t)
-//                    AtomicAdd(&sum[idx], distance);
-//
+
 }
 
 
@@ -209,13 +131,19 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
         exit(1);
     }
 
+
 //    boost::function<int (const PointCloud<PointType> &cloud, size_t index, double,
 //            std::vector<int> &, std::vector<float> &)> radius_search;
 //    radius_search(*_surface, _kept_indices, _radius * 0.5, _neighbor_indices, _neighbor_indices);
 
-    for (auto &n:_num_neighbors)
-        std::cout << n << std::endl;
-    std::cout << "printing finished" << std::endl;
+    // Declare the search locator definition
+//    boost::shared_ptr<pcl::PointCloud<pcl::PointXYZ>> _search_input(new(pcl::PointCloud<pcl::PointXYZ>));
+//    pcl::copyPointCloud(*_surface, *_search_input);
+//    pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+//    kdtree.setInputCloud (_search_input);
+//    kdtree.radiusSearch(_search_input->points[(*_kept_indices)[0]], _radius, _neighbor_indices, _neighbor_distances);
+//    std::cout << "Num neighbors: " << _neighbor_distances.size() << std::endl;
+    std::cout << "feature index " << (*_kept_indices)[0] << std::endl;
 
     cudaMalloc((void**)&dev_features_indices, _N_features * sizeof(int));
     checkCUDAError("mallod dev_features_indices error");
@@ -232,12 +160,20 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
     cudaMemset(dev_num_neighbors, 0, sizeof(int) * _N_features);
     checkCUDAError("memset num neighbors error");
 
-//    cudaMalloc((void**)&dev_cov, _N_features * sizeof(Eigen::Matrix3d));
-//    checkCUDAError("cudamalloc cov error");
-//    //  TODO: change this to thrust implementation
-//    thrust::device_ptr<Eigen::Matrix3d> dev_ptr(dev_cov);
-//    thrust::fill(dev_ptr, dev_ptr + _N_features , Eigen::Matrix3d::Zero());
-//    checkCUDAError("thrust memset cov error");
+    Eigen::Matrix3f* dev_rf = NULL;
+    cudaMalloc((void**)&dev_rf, _N_features * sizeof(Eigen::Matrix3f));
+    checkCUDAError("malloc dev_rf error");
+
+    Eigen::Vector3d *dev_vij = NULL;
+    cudaMalloc((void**)&dev_vij, _N_features * _n * sizeof(Eigen::Vector3d));
+    checkCUDAError("malloc dev_vij error");
+
+    cudaMalloc((void**)&dev_cov, _N_features * sizeof(Eigen::Matrix3d));
+    checkCUDAError("cudamalloc cov error");
+    //  TODO: change this to thrust implementation
+    thrust::device_ptr<Eigen::Matrix3d> dev_ptr(dev_cov);
+    thrust::fill(dev_ptr, dev_ptr + _N_features , Eigen::Matrix3d::Zero());
+    checkCUDAError("thrust memset cov error");
 //
 //    cudaMalloc((void**)&dev_sum, _N_features * sizeof(double));
 //    checkCUDAError("malloc dev_sum error");
@@ -249,35 +185,130 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
     checkCUDAError("malloc dev connected error");
     thrust::device_ptr<bool> dev_ptr_connected(dev_connected);
     thrust::fill(dev_ptr_connected, dev_ptr_connected + _N_surface * _N_features, false);
+    checkCUDAError("thrust fill error");
 
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((_N_surface + blockSize - 1)/blockSize));
 
-    kernRadiusSearch<<<fullBlockPerGrid_points, blockSize, sizeof(int) * _N_features>>> (_N_surface, _N_features,
+    kernRadiusSearch<<<fullBlockPerGrid_points, blockSize>>> (_N_surface, _N_features,
             dev_pos_surface, _radius, dev_features_indices, inv_radius, min_pi,  dev_num_neighbors, dev_connected);
     checkCUDAError("KernComputeCov error");
-//
-//
-//
-//    _num_neighbors.resize(_N_features);
-//    cudaMemcpy(&_num_neighbors[0], dev_num_neighbors, sizeof(int) * _N_features, cudaMemcpyDeviceToHost);
-//    checkCUDAError("cudamemcpy  num neigbors issue");
-//
-////
-//    cudaFree(dev_num_neighbors);
-//    checkCUDAError("dev_num free error");
-//
-//    _sum.resize(_N_features);
-//    cudaMemcpy(&_sum[0], dev_sum, sizeof(double) * _N_features, cudaMemcpyDeviceToHost);
-//    checkCUDAError("cudamemcpy error sum ");
-//    cudaFree(dev_sum);
-//    checkCUDAError("cudafree sum error");
-//
-//    _covs.resize(_N_features);
-//    cudaMemcpy(&_covs[0], dev_cov, sizeof(Eigen::Matrix3d) * _N_features, cudaMemcpyDeviceToHost);
-//    checkCUDAError("cudamemcpy dev_cov error");
-//    cudaFree(dev_cov);
-//    checkCUDAError("cudafree cov ");
 
+    fullBlockPerGrid_points = dim3 (static_cast<u_int32_t >((_N_features + blockSize - 1)/blockSize));
+
+    kernComputeLF<<<fullBlockPerGrid_points, blockSize>>> (_N_surface,_N_features, dev_pos_surface, dev_num_neighbors,
+            dev_features_indices, dev_connected, _radius, dev_vij, dev_cov);
+    checkCUDAError("kernCompute Local Reference error");
+
+    _num_neighbors.resize(_N_features);
+    cudaMemcpy(&_num_neighbors[0], dev_num_neighbors, sizeof(int) * _N_features, cudaMemcpyDeviceToHost);
+    checkCUDAError("cuda memcpy dev_numneigh error");
+
+//
+    cudaFree(dev_pos_surface);
+    cudaFree(dev_num_neighbors);
+    cudaFree(dev_features_indices);
+    cudaFree(dev_connected);
+    checkCUDAError("cudafree dev_connected");
+
+
+    _covs.resize(_N_features);
+    cudaMemcpy(&_covs[0], dev_cov, sizeof(Eigen::Matrix3d) * _N_features, cudaMemcpyDeviceToHost);
+    checkCUDAError("cudamemcpy dev_cov error");
+    cudaFree(dev_cov);
+    checkCUDAError("cudafree cov ");
+
+    _vij.resize(_N_features * _n);
+    cudaMemcpy(&_vij[0], dev_vij, sizeof(Eigen::Vector3d) * _N_features * _n, cudaMemcpyDeviceToHost);
+    checkCUDAError("cudamemcpy dev_vji error");
+    cudaFree(dev_vij);
+    checkCUDAError("cudafree vij ");
+
+    for (int idx = 0; idx <_N_features;idx++){
+        Eigen::Matrix3f rf;
+        if (_num_neighbors[idx] < _n)
+        {
+            //PCL_ERROR ("[pcl::%s::getLocalRF] Warning! Eigenvectors are NaN. Aborting Local RF computation of feature point (%lf, %lf, %lf)\n", "SHOTLocalReferenceFrameEstimation", central_point[0], central_point[1], central_point[2]);
+            rf.setConstant (std::numeric_limits<float>::quiet_NaN ());
+
+            output.is_dense = false;
+        }
+
+        Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> solver (_covs[idx]);
+
+        const double& e1c = solver.eigenvalues ()[0];
+        const double& e2c = solver.eigenvalues ()[1];
+        const double& e3c = solver.eigenvalues ()[2];
+
+        if (!isfinite (e1c) || !isfinite (e2c) || !isfinite (e3c))
+        {
+            //PCL_ERROR ("[pcl::%s::getLocalRF] Warning! Eigenvectors are NaN. Aborting Local RF computation of feature point (%lf, %lf, %lf)\n", "SHOTLocalReferenceFrameEstimation", central_point[0], central_point[1], central_point[2]);
+            rf.setConstant (std::numeric_limits<float>::quiet_NaN ());
+
+            output.is_dense = false;
+        }
+
+        // Disambiguation
+        Eigen::Vector3d v1 = Eigen::Vector3d::Zero ();
+        Eigen::Vector3d v3 = Eigen::Vector3d::Zero ();
+        v1.matrix () = solver.eigenvectors ().col (2);
+        v3.matrix () = solver.eigenvectors ().col (0);
+
+        int plusNormal = 0, plusTangentDirection1=0;
+        for (int ne = 0; ne < _n; ne++)
+        {
+            double dp = _vij[idx *_n + ne].dot (v1);
+            if (dp >= 0)
+                plusTangentDirection1++;
+
+            dp = _vij[idx *_n + ne].dot (v3);
+            if (dp >= 0)
+                plusNormal++;
+        }
+
+        //TANGENT
+        plusTangentDirection1 = 2*plusTangentDirection1 - _n;
+        if (plusTangentDirection1 == 0)
+        {
+            int points = 5; //std::min(valid_nn_points*2/2+1, 11);
+            int medianIndex = _n/2;
+
+            for (int i = -points/2; i <= points/2; i++)
+                if ( _vij[idx *_n + medianIndex - i].dot (v1) > 0)
+                    plusTangentDirection1 ++;
+
+            if (plusTangentDirection1 < points/2+1)
+                v1 *= - 1;
+        }
+        else if (plusTangentDirection1 < 0)
+            v1 *= - 1;
+
+        //Normal
+        plusNormal = 2*plusNormal - _n;
+        if (plusNormal == 0)
+        {
+            int points = 5; //std::min(valid_nn_points*2/2+1, 11);
+            int medianIndex = _n/2;
+
+            for (int i = -points/2; i <= points/2; i++)
+                if ( _vij[idx *_n + medianIndex - i].dot (v3) > 0)
+                    plusNormal ++;
+
+            if (plusNormal < points/2+1)
+                v3 *= - 1;
+        } else if (plusNormal < 0)
+            v3 *= - 1;
+
+        rf.row (0).matrix () = v1.head<3> ().cast<float> ();
+        rf.row (2).matrix () = v3.head<3> ().cast<float> ();
+        rf.row (1).matrix () = rf.row (2).cross (rf.row (0));
+
+        for (int d = 0; d < 3; ++d)
+        {
+            output[idx].x_axis[d] = rf.row (0)[d];
+            output[idx].y_axis[d] = rf.row (1)[d];
+            output[idx].z_axis[d] = rf.row (2)[d];
+        }
+    }
 
 
 }

@@ -18,6 +18,8 @@ public:
     inline Eigen::Vector4f getInverseRadius() const {return inv_radius;}
     inline Eigen::Vector4i getDimension()const {return pc_dimension;}
 
+public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 private:
     float radius=0.f;

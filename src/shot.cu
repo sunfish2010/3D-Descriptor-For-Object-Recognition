@@ -72,7 +72,7 @@ __global__ void computeBinColorShape(int N, const PointType* surface, double *bi
                 if (f > 0.008856)
                     LUT[idx] = powf(f, 0.3333f);
                 else
-                    LUT[idx] = (7.787 * f) + (16.0 / 116.0);
+                    LUT[idx] = (7.787f * f) + (16.f / 116.f);
             }
         }
     }
@@ -113,13 +113,20 @@ void SHOT::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eigen:
     // compute local reference
     pcl::PointCloud<pcl::ReferenceFrame> local_ref;
 
+    // gpu implementation of lrf, local frame is not determinastic
+
     SHOT_LRF lrf;
     lrf.setRadius(_radius);
     lrf.setInputCloud(_input);
     lrf.setSurface(_surface);
     lrf.setNormals(_normals);
     lrf.setKeptIndices(_kept_indices);
+
     lrf.compute(local_ref, inv_radius, pc_dimension, min_pi);
+
+    boost::shared_ptr<pcl::PointCloud<pcl::ReferenceFrame> default_frames (new pcl::PointCloud<pcl::ReferenceFrame> ());
+    lrf_estimation->compute (*default_frames);
+    frames_ = default_frames;
 
 
 //

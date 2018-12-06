@@ -1,10 +1,11 @@
 #include "main.hpp"
 
 #include <pcl/filters/uniform_sampling.h>
-#include <pcl/features/shot_omp.h>
+#include <pcl/features/shot.h>
 #include <pcl/recognition/cg/geometric_consistency.h>
 #include <pcl/common/transforms.h>
 #include <pcl/features/normal_3d_omp.h>
+#include <boost/bind.hpp>
 
 #define GPU 1
 #define VERBOSE 1
@@ -238,7 +239,7 @@ void detection_cpu(){
 
 
     //descriptors
-    pcl::SHOTEstimationOMP<PointType, pcl::Normal, pcl::SHOT352> descr_est;
+    pcl::SHOTEstimation<PointType, pcl::Normal, pcl::SHOT352> descr_est;
     descr_est.setRadiusSearch (0.02f);
 
     descr_est.setInputCloud (model_keypoints);

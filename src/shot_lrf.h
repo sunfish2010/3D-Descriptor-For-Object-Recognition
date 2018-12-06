@@ -41,11 +41,12 @@ private:
     int _N_surface;
 
     std::vector<int> _num_neighbors;
-    std::vector<double> _sum;
+//    std::vector<double> _sum;
     std::vector<Eigen::Matrix3d> _covs;
+    std::vector<Eigen::Vector3d> _vij;
     std::vector<int> _neighbor_indices;
     std::vector<float> _neighbor_distances;
     /** \brief inner max neighbor to keep */
-    const int _n = 16;
+    const int _n = 128;
 
 };

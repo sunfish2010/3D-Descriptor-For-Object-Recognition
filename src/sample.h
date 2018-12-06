@@ -21,6 +21,7 @@ public:
     inline IndicesConstPtr getKeptIndice() {return boost::make_shared<const std::vector<int>>(kept_indices);}
     inline IndicesConstPtr getGridIndices(){return IndicesConstPtr(&grid_indices);}
 
+
 private:
 //    float radius=0.f;
     int N_new=0;
