@@ -175,7 +175,7 @@ UniformDownSample::~UniformDownSample() {
 //
 //
 ///** \brief downsampling the point cloud by computing unique indices and
-// *  resampling using cpu
+// *  resampling using cpu, this method is slower and use more memory than the atomic version
 // * **/
 //
 //void UniformDownSample::downSample(const pcl::PointCloud<PointType >::ConstPtr &input,

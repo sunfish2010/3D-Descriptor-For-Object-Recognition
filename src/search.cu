@@ -4,36 +4,7 @@
 __global__ void kernSearchRadius(int N, int n, const int max_neighbor, const PointType *surface, float radius,
         const int *feature_indices, const Eigen::Vector4f inv_radius, const Eigen::Vector4i min_pi,
         int * neighbor_indices, int* num_neighbors, float* dist){
-//
-//    if (index < N) {
-//        PointType pt = surface[index];
-//        if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
-//            uint8_t i = static_cast<uint8_t >(floor(pt.x * inv_radius[0]));
-//            uint8_t j = static_cast<uint8_t >(floor(pt.y * inv_radius[1]));
-//            uint8_t k = static_cast<uint8_t >(floor(pt.z * inv_radius[2]));
-//            float curr_dist = (pt.x - i) * (pt.x - i) + (pt.y - j) * (pt.y - j) + (pt.z - k) * (pt.z - k);
-//            i -= min_pi[0];
-//            j -= min_pi[1];
-//            k -= min_pi[2];
-//            for (int idx = 0; idx < n; ++idx ){
-//                if (i >= search_range[idx] && i <= search_range[idx + 3]
-//                    && j >= search_range[idx + 1] && j <= search_range[idx + 4]
-//                    && k >= search_range[idx + 2] && k <= search_range[idx + 5]){
-//                    while(atomicCAS(&state, 0 , 1) != 0);
-//                    int offset = num_neighbors[idx];
-//                    if (offset < max_neighbor){
-//                        neighbor_indices[idx * max_neighbor + offset] = index;
-//                        dist[idx * max_neighbor + offset] = curr_dist;
-//                        atomicAdd(&num_neighbors[idx], 1);
-//                    }
-//                    atomicExch(&state, 0);
-//
-//
-//
-//                }
-//            }
-//        }
-//    }
+
 }
 
 Search::~Search() {

@@ -28,9 +28,17 @@ __device__ double AtomicAdd(double *address, double val){
 
 #endif
 
+/** \brief radius search
+ * N : number of surface pts,
+ * n : number of feature pts
+ * feature indices: index of feature in original surface pt cloud
+ * connected: bool array to indicate whether pt- pt is within radius
+ * */
+
+// TODO:: Change this to calculate directly cov, use N_features as threadIdx.x
 
 __global__ void kernRadiusSearch(int N, int n, const PointType *surface, const float radius, const int *feature_indices,
-        const Eigen::Vector4f inv_radius, const Eigen::Vector4i min_pi, int* num_neighbors, bool* connected){
+        int* num_neighbors, bool* connected){
 //    extern __shared__ int neighbor[];
     int index = threadIdx.x + blockDim.x * blockIdx.x;
 //    if (index < n) {
@@ -40,25 +48,14 @@ __global__ void kernRadiusSearch(int N, int n, const PointType *surface, const f
     if (index < N) {
         PointType pt = surface[index];
         if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)) {
-            uint8_t i = static_cast<uint8_t >(floor(pt.x * inv_radius[0]) - min_pi[0]);
-            uint8_t j = static_cast<uint8_t >(floor(pt.y * inv_radius[1]) - min_pi[1]);
-            uint8_t k = static_cast<uint8_t >(floor(pt.z * inv_radius[2]) - min_pi[2]);
-//            float curr_dist = (pt.x - i) * (pt.x - i) + (pt.y - j) * (pt.y - j) + (pt.z - k) * (pt.z - k);
+
             for (int idx = 0; idx < n; ++idx) {
 //                printf("N is %d, n is %d, number is %d, feature idx is %d\n",N, n, idx, feature_indices[idx]);
                 PointType central_point = surface[feature_indices[idx]];
-                Eigen::Vector3i min_idx = Eigen::Vector3i(
-                        static_cast<int>(floor((central_point.x - radius) * inv_radius[0]) - min_pi[0]),
-                        static_cast<int>(floor((central_point.y - radius) * inv_radius[1]) - min_pi[1]),
-                        static_cast<int>(floor((central_point.z - radius) * inv_radius[2]) - min_pi[2]));
-                Eigen::Vector3i max_idx = Eigen::Vector3i(
-                        static_cast<int>(floor((central_point.x + radius) * inv_radius[0]) - min_pi[0]),
-                        static_cast<int>(floor((central_point.y + radius) * inv_radius[1]) - min_pi[1]),
-                        static_cast<int>(floor((central_point.z + radius) * inv_radius[2]) - min_pi[2]));
 
 
-                if (i >= min_idx[0] && i <= max_idx[0] && j >= min_idx[1] && j <= max_idx[1]
-                && k >= min_idx[2] && k <= max_idx[2]
+                if (fabs(central_point.x - pt.x) < radius  && fabs(central_point.y - pt.y) < radius
+                && fabs(central_point.z - pt.z) < radius
                 && !(pt.x == central_point.x && pt.y == central_point.y && pt.z == central_point.z)) {
 
                     atomicAdd(&num_neighbors[idx],1);
@@ -70,6 +67,9 @@ __global__ void kernRadiusSearch(int N, int n, const PointType *surface, const f
     }
 }
 
+
+/** \brief vij^T * vij
+ * */
 __device__ Eigen::Matrix3d computevij(Eigen::Vector3d vij){
     Eigen::Matrix3d output;
     output(0,0) =  vij[0] * vij[0];
@@ -86,6 +86,15 @@ __device__ Eigen::Matrix3d computevij(Eigen::Vector3d vij){
     return output;
 }
 
+
+/** \brief originally code for computing local reference directly
+ * but calling selfAdjointEigen solver inside kernel always lead to invalid memory access
+ * Therefore, this now only calculates covariances
+ * N : number of surface pts,
+ * n : number of feature pts
+ * feature indices: index of feature in original surface pt cloud
+ * connected: bool array to indicate whether pt- pt is within radius
+ * */
 __global__ void kernComputeLF(int N, int n, const PointType * surface,const int* num_neighbors,const int * feature_indices,
       const bool* connected, const int radius, Eigen::Vector3d* vij, Eigen::Matrix3d *covs ){
     const int max_n = 128;
@@ -190,7 +199,7 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((_N_surface + blockSize - 1)/blockSize));
 
     kernRadiusSearch<<<fullBlockPerGrid_points, blockSize>>> (_N_surface, _N_features,
-            dev_pos_surface, _radius, dev_features_indices, inv_radius, min_pi,  dev_num_neighbors, dev_connected);
+            dev_pos_surface, _radius, dev_features_indices, dev_num_neighbors, dev_connected);
     checkCUDAError("KernComputeCov error");
 
     fullBlockPerGrid_points = dim3 (static_cast<u_int32_t >((_N_features + blockSize - 1)/blockSize));

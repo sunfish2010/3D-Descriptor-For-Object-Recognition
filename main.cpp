@@ -7,7 +7,7 @@
 #include <pcl/features/normal_3d_omp.h>
 #include <boost/bind.hpp>
 
-#define GPU 1
+#define GPU 0
 #define VERBOSE 1
 
 int main(int argc, char* argv[]){

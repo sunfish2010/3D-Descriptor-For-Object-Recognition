@@ -25,8 +25,6 @@ private:
     float radius=0.f;
     int N=0;
     PointType *dev_pc=NULL;
-    Eigen::Vector4f *dev_min=NULL;
-    Eigen::Vector4f *dev_max=NULL;
     int *dev_grid_indices=NULL;
     int *dev_array_indices=NULL;
 
