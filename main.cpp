@@ -7,7 +7,7 @@
 #include <pcl/features/normal_3d_omp.h>
 #include <boost/bind.hpp>
 
-#define GPU 0
+#define GPU 1
 #define VERBOSE 1
 
 int main(int argc, char* argv[]){
@@ -232,10 +232,9 @@ void detection_cpu(){
     std::cout << "Model total points: " << model->size () << "; Selected Keypoints: " << model_keypoints->size () << std::endl;
 
     uniform_sampling.setInputCloud (scene);
-    uniform_sampling.setRadiusSearch (0.02f);
+    uniform_sampling.setRadiusSearch (0.035f);
     uniform_sampling.filter (*scene_keypoints);
     std::cout << "Scene total points: " << scene->size () << "; Selected Keypoints: " << scene_keypoints->size () << std::endl;
-
 
 
     //descriptors

@@ -7,7 +7,7 @@
 
 #include "cudaCommon.h"
 
-class SHOT:public Descriptor<pcl::SHOT352>{
+class SHOT352:public Descriptor<pcl::SHOT352>{
 public:
     //typedef pcl::PointCloud<OutType> PointCloudOut;
     //typedef typename PointCloudOut::Ptr PointCloudOutPtr;
@@ -19,13 +19,13 @@ public:
 //    using Descriptor<pcl::SHOT352>::_neighbor_indices;
     using Descriptor<pcl::SHOT352>::_kept_indices;
 
-    SHOT(int nr_shape_bins = 10, int nr_color_bins = 30) :Descriptor<pcl::SHOT352>(0.01),
+    SHOT352(int nr_shape_bins = 10, int nr_color_bins = 30) :Descriptor<pcl::SHOT352>(0.01),
                                   nr_shape_bins_ (nr_shape_bins),nr_color_bins_(nr_color_bins),
                                   shot_ (), lrf_radius_ (0),
                                   nr_grid_sector_ (32),
                                   maxAngularSectors_ (32),
                                   descLength_ (0){};
-    virtual ~SHOT()override= default;
+    virtual ~SHOT352()override= default;
 
     inline void setLRFPtr(const pcl::PointCloud<pcl::ReferenceFrame> &lrf){_lrf = lrf;}
 

@@ -60,7 +60,7 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
 //    lrf.setNormals(model_normals);
 
     IndicesConstPtr kept_indices = filter.getKeptIndice();
-    SHOT descrip_shot;
+    SHOT352 descrip_shot;
     descrip_shot.setRadius(0.02);
     descrip_shot.setNormals(model_normals);
     descrip_shot.setInputCloud(model_keypoints);

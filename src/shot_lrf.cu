@@ -53,10 +53,9 @@ __global__ void kernRadiusSearch(int N, int n, const PointType *surface, const f
 //                printf("N is %d, n is %d, number is %d, feature idx is %d\n",N, n, idx, feature_indices[idx]);
                 PointType central_point = surface[feature_indices[idx]];
 
-
-                if (fabs(central_point.x - pt.x) < radius  && fabs(central_point.y - pt.y) < radius
-                && fabs(central_point.z - pt.z) < radius
-                && !(pt.x == central_point.x && pt.y == central_point.y && pt.z == central_point.z)) {
+                Eigen::Vector3f delta(pt.x- central_point.x, pt.y - central_point.y, pt.z - central_point.z);
+                double distance = sqrt(delta.dot(delta));
+                if ( distance <= radius && !(pt.x == central_point.x && pt.y == central_point.y && pt.z == central_point.z)){
 
                     atomicAdd(&num_neighbors[idx],1);
                     connected[idx * N + index] = true;
