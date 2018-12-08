@@ -1,13 +1,16 @@
 #include "search.h"
 
 
-void KDTree::make_tree(std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>> input) {
+void KDTree::make_tree(const std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>& input) {
+
+    std::vector<int> indices(input.size());
+    std::iota(indices.begin(), indices.end(), 0);
 
     Node root;
     root.id = _num_elements++;
     root.axis = 0;
-    root.search_begin = input.begin();
-    root.search_end = input.end();
+    root.search_begin = indices.begin();
+    root.search_end = indices.end();
 
     std::vector<Node, Eigen::aligned_allocator<Node>>Nodes;
 
@@ -20,14 +23,16 @@ void KDTree::make_tree(std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::S
             right.id = _num_elements++;
             curr.left = left.id;
             curr.right = right.id;
-            left.axis = curr.axis + 1;
-            right.axis = curr.axis + 1;
+            left.axis = (curr.axis + 1) % _dim;
+            right.axis = (curr.axis + 1) % _dim;
             left.parent = curr.id;
             right.parent = curr.id;
-            _axis = curr.axis % _dim;
-            std::sort(curr.search_begin, curr.search_end, sortDim);
+            _axis = curr.axis;
+            std::sort(curr.search_begin, curr.search_end,
+                    [&input](size_t i1, size_t i2){ return input[i1].descriptor[kdtree->_axis];});
+
             auto mid = curr.search_begin + (curr.search_end - curr.search_begin)/2;
-            curr.data = *mid;
+            curr.idx = *mid;
             left.search_begin = curr.search_begin;
             left.search_end = mid - 1;
             right.search_begin = mid + 1;
@@ -39,13 +44,19 @@ void KDTree::make_tree(std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::S
 
         }
         else if (curr.search_begin == curr.search_end){
-            curr.data = *curr.search_end;
+            curr.idx = *curr.search_end;
         }
         tree.emplace_back(curr);
     }
 
 
 }
+
+
+__global__ void kernFindCorrespondence(int N, const Node* nodes, pcl::SHOT352 queries, int indices){
+
+}
+
 
 Search::~Search() {
 

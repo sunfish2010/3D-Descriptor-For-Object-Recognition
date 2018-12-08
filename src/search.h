@@ -24,11 +24,13 @@ public :
 
     int left, right, parent;
     int id;
-    pcl::SHOT352 data;
+    int idx;
+//    pcl::SHOT352 data;
     int axis;
-    std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>::iterator search_begin;
-    std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>::iterator search_end;
-
+//    std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>::iterator search_begin;
+//    std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>::iterator search_end;
+    std::vector<int>::iterator search_begin;
+    std::vector<int>::iterator search_end;
     Node():left(-1), right(-1), parent(-1), id(-1), axis(-1), search_begin(nullptr), search_end(nullptr){}
     ~Node()= default;
     //int getAxis();
@@ -43,10 +45,10 @@ class KDTree{
 public:
     KDTree():_dim(352), _axis(0),_num_elements(0){kdtree = this;}
     virtual ~KDTree()= default;
-    void make_tree (std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>> input);
+    void make_tree (const std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>& input);
     std::vector<Node, Eigen::aligned_allocator<Node>> getTree()const { return tree; }
-    static bool sortDim(const pcl::SHOT352& a, const pcl::SHOT352& b){
-        return a.descriptor[kdtree->_axis] < b.descriptor[kdtree->_axis];}
+//    static bool sortDim(const pcl::SHOT352& a, const pcl::SHOT352& b){
+//        return a.descriptor[kdtree->_axis] < b.descriptor[kdtree->_axis];}
 protected:
     int _dim;
     int _axis;
