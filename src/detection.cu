@@ -49,16 +49,6 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
 
-
-//
-//    Eigen::Vector4i pc_dimension;
-//
-//    SHOT_LRF lrf;
-//    lrf.setRadius(0.02f);
-//    lrf.setInputCloud(model_keypoints);
-//    lrf.setSurface(model);
-//    lrf.setNormals(model_normals);
-
     IndicesConstPtr kept_indices = filter.getKeptIndice();
     SHOT352 descrip_shot;
     descrip_shot.setRadius(0.02);
@@ -69,6 +59,8 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
 //    descrip_shot.setGridIndices(grid_indices);
     descrip_shot.setSurface(model);
     descrip_shot.compute(*model_descriptors, inv_radius, pc_dimension, min_pi);
+
+
 
 
 }

@@ -42,8 +42,8 @@ private:
 
     std::vector<int> _num_neighbors;
 //    std::vector<double> _sum;
-    std::vector<Eigen::Matrix3d> _covs;
-    std::vector<Eigen::Vector3d> _vij;
+    std::vector<Eigen::Matrix3d, Eigen::aligned_allocator<Eigen::Matrix3d>> _covs;
+    std::vector<Eigen::Vector3d, Eigen::aligned_allocator<Eigen::Vector3d>> _vij;
     std::vector<int> _neighbor_indices;
     std::vector<float> _neighbor_distances;
     /** \brief inner max neighbor to keep */

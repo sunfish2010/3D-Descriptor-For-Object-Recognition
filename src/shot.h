@@ -4,7 +4,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include "descriptor.h"
-
+#include <pcl/features/shot_lrf_omp.h>
 #include "cudaCommon.h"
 
 class SHOT352:public Descriptor<pcl::SHOT352>{
@@ -19,29 +19,30 @@ public:
 //    using Descriptor<pcl::SHOT352>::_neighbor_indices;
     using Descriptor<pcl::SHOT352>::_kept_indices;
 
-    SHOT352(int nr_shape_bins = 10, int nr_color_bins = 30) :Descriptor<pcl::SHOT352>(0.01),
+    explicit SHOT352(int nr_shape_bins = 10, int nr_color_bins = 30) :Descriptor<pcl::SHOT352>(0.01),
                                   nr_shape_bins_ (nr_shape_bins),nr_color_bins_(nr_color_bins),
-                                  shot_ (), lrf_radius_ (0),
+                                  lrf_radius_ (0),
                                   nr_grid_sector_ (32),
                                   maxAngularSectors_ (32),
                                   descLength_ (0){};
-    virtual ~SHOT352()override= default;
+    virtual ~SHOT352()override {
+        _input.reset();
+        _kept_indices.reset();
+        _normals.reset();
+        _surface.reset();
+    }
 
-    inline void setLRFPtr(const pcl::PointCloud<pcl::ReferenceFrame> &lrf){_lrf = lrf;}
+//    inline void setLRFPtr(const pcl::PointCloud<pcl::ReferenceFrame> &lrf){_lrf = lrf;}
 
-private:
-    pcl::PointCloud<pcl::ReferenceFrame> _lrf;
 
 protected:
 
     void computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output,  const Eigen::Vector4f &inv_radius,
-                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);
+                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) override;
 
 
 
     int nr_shape_bins_, nr_color_bins_;
-    /** \brief Placeholder for a point's SHOT. */
-    Eigen::VectorXf shot_;
 
     float lrf_radius_;
     /** \brief The radius used for the LRF computation */

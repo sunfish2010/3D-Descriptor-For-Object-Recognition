@@ -12,7 +12,6 @@ set(SOURCE_FILES
         "shot_lrf.h"
         "search.cu"
         "search.h"
-        "kdtree.cpp"
         "kdtree.hpp"
         )
 

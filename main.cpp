@@ -258,6 +258,7 @@ void detection_cpu(){
 
     pcl::KdTreeFLANN<pcl::SHOT352> match_search;
     match_search.setInputCloud (model_descriptors);
+    auto rep = match_search.point_representation_;
 
     //  For each scene keypoint descriptor, find nearest neighbor into the model keypoints descriptor cloud and add it to the correspondences vector.
     for (size_t i = 0; i < scene_descriptors->size (); ++i)

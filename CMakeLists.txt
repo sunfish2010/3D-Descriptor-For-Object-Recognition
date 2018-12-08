@@ -18,7 +18,7 @@ SET (BOOST_MIN_VERSION "1.55.0")
 set (Boost_NO_BOOST_CMAKE ON)
 set(Boost_DEBUG ON)
 
-find_package(Threads REQUIRED)
+#find_package(Threads REQUIRED)
 
 
 list(APPEND CUDA_NVCC_FLAGS_DEBUG          -O0 -g -G)
@@ -47,8 +47,8 @@ endforeach()
 
 include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
-add_definitions(${PCL_DEFINITIONS})
-
+#add_definitions(${PCL_DEFINITIONS})
+message( STATUS ${PCL_DEFINITIONS})
 add_subdirectory(util)
 add_subdirectory(src)
 

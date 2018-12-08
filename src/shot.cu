@@ -1,6 +1,6 @@
 #include "shot.h"
 #include "shot_lrf.h"
-#include <pcl/features/shot_lrf_omp.h>
+
 
 __global__ void computeBinDistShape(int N,const pcl::Normal* norms, const pcl::ReferenceFrame *lrf,
         double *bin_dist, int* neighbor_indices, const int n_bin, const int k){
@@ -415,12 +415,18 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if (index < n){
         int num_neighbors = 0;
+        int offset = descLength_ * index;
         PointType central_point = surface[feature_indices[index]];
         pcl::ReferenceFrame current_frame = lrf[index];
 
         Eigen::Vector3f current_frame_x (current_frame.x_axis[0], current_frame.x_axis[1], current_frame.x_axis[2]);
         Eigen::Vector3f current_frame_y (current_frame.y_axis[0], current_frame.y_axis[1], current_frame.y_axis[2]);
         Eigen::Vector3f current_frame_z (current_frame.z_axis[0], current_frame.z_axis[1], current_frame.z_axis[2]);
+        if(!isfinite(current_frame_x[0]) || !isfinite(current_frame_x[1]) || !isfinite(current_frame_x[2])
+           || !isfinite(current_frame_y[0]) || !isfinite(current_frame_y[1]) || !isfinite(current_frame_y[2])
+           || !isfinite(current_frame_z[0]) || !isfinite(current_frame_z[1]) || !isfinite(current_frame_z[2])  ){
+            shot[offset] = NAN;
+        }
 
         double bin_dist[1000];
         for(int idx = 0; idx < N;  idx++){
@@ -433,7 +439,6 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                     pcl::Normal norm = norms[idx];
                     const Eigen::Vector3f norm_vec(norm.normal_x, norm.normal_y, norm.normal_z);
                     if (! isfinite(norm_vec[0]) || !isfinite(norm_vec[1]) || !isfinite(norm_vec[2])){
-                        bin_dist[num_neighbors] = NAN;
                         continue;
                     }else{
                         double cosDesc = norm_vec.dot(current_frame_z);
@@ -442,7 +447,6 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         bin_dist[num_neighbors] = ((1.0 + cosDesc) * n_dist_bin) / 2;
                     }
 
-                    int offset = descLength_ * index;
 
                     if (areEquals (distance, 0.0))
                         continue;
@@ -546,7 +550,7 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         else
                         {
                             intWeightShape += 1 + inclinationDistance;
-                            assert ((desc_index + 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index + 1) * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert ((desc_index + 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index + 1) * (n_dist_bin+1) + step_index_shape < descLength_);
                             shot[offset + (desc_index + 1) * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (inclinationDistance);
                         }
                     }
@@ -560,12 +564,7 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         else
                         {
                             intWeightShape += 1 - inclinationDistance;
-                            if (!((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_)){
-    printf("desc_index is %d, step_index_shape is %d, n_dist_bin: %d, num_neighbors %d, bin_dist: %f,  \n",
-            desc_index, step_index_shape, n_dist_bin, num_neighbors, bin_dist[num_neighbors]);
-                            }
-
-                            assert ((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert ((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_);
                             shot[offset + (desc_index - 1) * (n_dist_bin+1) + step_index_shape] += static_cast<float> (inclinationDistance);
                         }
                     }
@@ -580,26 +579,26 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         double angularSectorStart = - PST_RAD_PI_7_8;
 
                         double azimuthDistance = (azimuth - (angularSectorStart + angularSectorSpan*sel)) / angularSectorSpan;
-                        assert ((azimuthDistance < 0.5 || areEquals (azimuthDistance, 0.5)) && (azimuthDistance > - 0.5 || areEquals (azimuthDistance, - 0.5)));
+//                        assert ((azimuthDistance < 0.5 || areEquals (azimuthDistance, 0.5)) && (azimuthDistance > - 0.5 || areEquals (azimuthDistance, - 0.5)));
                         azimuthDistance = max(- 0.5, min (azimuthDistance, 0.5));
 
                         if (azimuthDistance > 0)
                         {
                             intWeightShape += 1 - azimuthDistance;
                             int interp_index = (desc_index + 4) % maxAngularSectors_;
-                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
                             shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] += static_cast<float> (azimuthDistance);
                         }
                         else
                         {
                             int interp_index = (desc_index - 4 + maxAngularSectors_) % maxAngularSectors_;
                             intWeightShape += 1 + azimuthDistance;
-                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
                             shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (azimuthDistance);
                         }
                     }
 
-                    assert (volume_index_shape + step_index_shape >= 0 &&  volume_index_shape + step_index_shape < descLength_);
+//                    assert (volume_index_shape + step_index_shape >= 0 &&  volume_index_shape + step_index_shape < descLength_);
                     shot[offset + volume_index_shape + step_index_shape] += static_cast<float> (intWeightShape);
 
                     num_neighbors++;
@@ -608,6 +607,20 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
             }
 
         }
+        assert(num_neighbors > 5);
+
+        // normalize histogram
+        if (isfinite(shot[offset])){
+            double hist_sum = 0;
+            for (int i = 0; i < descLength_; ++i)
+                hist_sum += shot[offset + i] * shot[offset + i];
+            float norm_fact = static_cast<float>(sqrt(hist_sum));
+
+            for (int i = 0; i < descLength_; ++i)
+                shot[offset + i] = shot[offset + i]/ norm_fact;
+        }
+
+
     }
 
 }
@@ -643,14 +656,15 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
     }
     IndicesPtr indices_ = boost::make_shared<std::vector<int>>(indices);
 
-    boost::shared_ptr<pcl::PointCloud<pcl::ReferenceFrame>> default_frames (new pcl::PointCloud<pcl::ReferenceFrame> ());
-    pcl::SHOTLocalReferenceFrameEstimationOMP<PointType>::Ptr lrf_estimator(new pcl::SHOTLocalReferenceFrameEstimationOMP<PointType>());
-    lrf_estimator->setRadiusSearch (_radius);
-    lrf_estimator->setInputCloud (_input);
-    lrf_estimator->setSearchSurface(_surface);
-    lrf_estimator->setIndices (indices_);
-//    lrf_estimator->setNumberOfThreads(threads_);
-    lrf_estimator->compute (*default_frames);
+    pcl::SHOTLocalReferenceFrameEstimationOMP<PointType> lrf_estimator;
+    pcl::PointCloud<pcl::ReferenceFrame> default_frames;
+    lrf_estimator.setRadiusSearch (_radius);
+    lrf_estimator.setInputCloud (_input);
+    lrf_estimator.setSearchSurface(_surface);
+    lrf_estimator.setIndices (indices_);
+
+
+    lrf_estimator.compute (default_frames);
 
     int N = static_cast<int> (_input->points.size());
     dim3 numThreadsPerBlock = (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
@@ -665,7 +679,7 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
     cudaMalloc((void**)&dev_lrf, N * sizeof (pcl::ReferenceFrame));
     checkCUDAError("cuda malloc dev_lrf error");
 
-    cudaMemcpy(dev_lrf, &default_frames->points[0], N * sizeof(pcl::ReferenceFrame), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_lrf, &default_frames.points[0], N * sizeof(pcl::ReferenceFrame), cudaMemcpyHostToDevice);
     checkCUDAError("cuda Memcpy lrf error");
 
     pcl::Normal *dev_normals = NULL;
@@ -690,6 +704,39 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
             dev_normals, dev_lrf, nr_shape_bins_, dev_shot);
     checkCUDAError("compute shot error");
 
+//    std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f> > rototranslations;
 
+    std::vector<float> shot(static_cast<uint32_t >(N * descLength_));
+    cudaMemcpy(&shot[0], dev_shot, sizeof(float) * N * descLength_, cudaMemcpyDeviceToHost);
+    checkCUDAError("copy shot error");
+
+    for (int i = 0; i < N; ++i){
+        int offset = i * descLength_;
+        if (!isfinite(shot[offset])){
+            output.is_dense = false;
+            for (int j = 0; j < descLength_; ++j)
+                output.points[i].descriptor[j] = std::numeric_limits<float >::quiet_NaN();
+            for (int j = 0; j < 9; ++j)
+                output.points[i].rf[j] = std::numeric_limits<float >::quiet_NaN();
+        }
+        else{
+            for (int j = 0; j < descLength_; ++j)
+                output.points[i].descriptor[j] = shot[offset + j];
+            for (int j = 0; j < 3; ++j){
+                output.points[i].rf[j] = default_frames.points[i].x_axis[j];
+                output.points[i].rf[j + 3] = default_frames.points[i].y_axis[j];
+                output.points[i].rf[j + 6] = default_frames.points[i].z_axis[j];
+            }
+        }
+    }
+
+    std::cout << "descriptor calculation done" << std::endl;
+
+    cudaFree(dev_kept_indices);
+    cudaFree(dev_lrf);
+    cudaFree(dev_normals);
+    cudaFree(dev_pos_surface);
+    cudaFree(dev_shot);
+    checkCUDAError("cudafree err");
 
 }

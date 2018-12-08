@@ -11,13 +11,18 @@ public:
     //typedef typename PointCloudOut::Ptr PointCloudOutPtr;
     Descriptor()= default;
     explicit Descriptor(float radius): _radius(radius){};
-    virtual ~Descriptor(){};
+    virtual ~Descriptor(){
+        _input.reset();
+        _kept_indices.reset();
+        _normals.reset();
+        _surface.reset();
+    };
     inline void setRadius(float radius){_radius = radius;}
     inline void setNormals(pcl::PointCloud<pcl::Normal>::ConstPtr normals){_normals = normals;}
     inline void setSurface(pcl::PointCloud<PointType>::ConstPtr surface){_surface = surface;}
     inline void setInputCloud(pcl::PointCloud<PointType>::ConstPtr input){_input = input;}
 //    inline void setFeatureNeighborsIndices(const IndicesPtr &neighbor_indices){_neighbor_indices = neighbor_indices;}
-    inline void setKeptIndices(const IndicesConstPtr &kept_indices){_kept_indices = kept_indices;}
+    virtual void setKeptIndices(const IndicesConstPtr &kept_indices){_kept_indices = kept_indices;}
 
     void compute(PointCloudOut &output,  const Eigen::Vector4f &inv_radius,
                  const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);
