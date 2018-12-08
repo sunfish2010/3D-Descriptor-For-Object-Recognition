@@ -18,7 +18,7 @@ public:
         _surface.reset();
     };
     inline void setRadius(float radius){_radius = radius;}
-    inline void setNormals(pcl::PointCloud<pcl::Normal>::ConstPtr normals){_normals = normals;}
+    inline void setNormals(const pcl::PointCloud<pcl::Normal>::ConstPtr &normals){_normals = normals;}
     inline void setSurface(pcl::PointCloud<PointType>::ConstPtr surface){_surface = surface;}
     inline void setInputCloud(pcl::PointCloud<PointType>::ConstPtr input){_input = input;}
 //    inline void setFeatureNeighborsIndices(const IndicesPtr &neighbor_indices){_neighbor_indices = neighbor_indices;}

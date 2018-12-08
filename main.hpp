@@ -9,7 +9,6 @@
 #include "util/utilityCore.hpp"
 #include <cuda_runtime.h>
 #include "src/detection.h"
-#include "src/kdtree.hpp"
 
 using namespace std;
 
@@ -24,6 +23,7 @@ pcl::PointCloud<pcl::SHOT352>::Ptr model_descriptors(new pcl::PointCloud<pcl::SH
 pcl::PointCloud<pcl::SHOT352>::Ptr scene_descriptors(new pcl::PointCloud<pcl::SHOT352>);
 pcl::PointCloud<PointType>::Ptr model_keypoints (new pcl::PointCloud<PointType>);
 pcl::PointCloud<PointType>::Ptr scene_keypoints (new pcl::PointCloud<PointType>);
+pcl::CorrespondencesPtr model_scene_corrs (new pcl::Correspondences ());
 
 // viewpoints
 int vp1(0);
@@ -34,7 +34,6 @@ float model_ss(0.01f);
 
 bool init();
 void mainLoop();
-void runCUDA();
 
 void keyCallback(const pcl::visualization::KeyboardEvent & event, void *viewer_void);
 void mouseCallback(const pcl::visualization::MouseEvent &event, void *viewer_void);

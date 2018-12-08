@@ -47,9 +47,6 @@ int main(int argc, char* argv[]){
 
 }
 
-void runCUDA(){
-
-}
 
 bool init(){
 #if GPU
@@ -70,66 +67,24 @@ bool init(){
 #if GPU
     //pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
     //
-    pcl::PointCloud<PointType>::Ptr off_scene_model (new pcl::PointCloud<PointType> ());
-    pcl::transformPointCloud (*model, *off_scene_model, Eigen::Vector3f (-1,0,0), Eigen::Quaternionf (1, 0, 0, 0));
-    pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(off_scene_model);
+//    pcl::PointCloud<PointType>::Ptr off_scene_model (new pcl::PointCloud<PointType> ());
+//    pcl::transformPointCloud (*model, *off_scene_model, Eigen::Vector3f (-1,0,0), Eigen::Quaternionf (1, 0, 0, 0));
+//    pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(off_scene_model);
 //    viewer->addPointCloud(off_scene_model, rgb, "model");
     //rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
     //viewer->addPointCloud(scene, rgb, "scene");
 
-    // compute normals
-    pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
-    normal_est.setKSearch(10);
-    normal_est.setInputCloud(model);
-    normal_est.compute(*model_normals);
-    normal_est.setInputCloud(scene);
-    normal_est.compute(*scene_normals);
 
-    pcl::UniformSampling<PointType> uniform_sampling;
-
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    uniform_sampling.setInputCloud (scene);
-    uniform_sampling.setRadiusSearch (0.03f);
-    uniform_sampling.filter (*scene_keypoints);
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "PCL implementation scene downsampling takes: " << duration << std::endl;
-
-    t1 = std::chrono::high_resolution_clock::now();
-    uniform_sampling.setInputCloud (model);
-    uniform_sampling.setRadiusSearch (0.01f);
-    uniform_sampling.filter (*model_keypoints);
-    t2 = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "PCL implementation model downsampling takes: " << duration << std::endl;
-
-    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
+//    rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(model_keypoints);
     //viewer->addPointCloud(model_keypoints, rgb, "model_keypoints");
+
+    // model is fixed, just need to calculate once
+    detectionInit(model, model_keypoints, model_normals, model_descriptors);
+
     std::cout << "---------------------------------------------------------" << std::endl;
-    std::cout << "Model total points CPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
+    std::cout << "Model total points GPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
-    Eigen::Vector4f min_p, max_p;
 
-#if VERBOSE
-    // Get the minimum and maximum dimensions
-    pcl::getMinMax3D<PointType>(*model, min_p, max_p);
-    std::cout << "The min for each dimension using pcl is " << min_p << std::endl;
-#endif
-
-    (*scene_keypoints).points.clear();
-    (*model_keypoints).points.clear();
-    for (int i = 0 ; i < 2; ++i){
-        detectionInit(model, model_keypoints, model_normals, model_descriptors);
-        std::cout << "---------------------------------------------------------" << std::endl;
-        std::cout << "Model total points GPU: " << model->size() << "; Selected Keypoints: " << model_keypoints->size() << std::endl;
-        std::cout << "---------------------------------------------------------" << std::endl;
-//        detectionInit(scene, scene_keypoints, model_normals, model_descriptors);
-        std::cout << "---------------------------------------------------------" << std::endl;
-        std::cout << "Model total points GPU: " << scene->size() << "; Selected Keypoints: " << scene_keypoints->size() << std::endl;
-        std::cout << "---------------------------------------------------------" << std::endl;
-
-
-    }
 
 
 
@@ -168,8 +123,11 @@ bool init(){
 
 void mainLoop(){
 
-#if !GPU
+#if GPU
+    detect(model_descriptors, scene, scene_keypoints, scene_normals, scene_descriptors, model_scene_corrs);
+#else
     detection_cpu();
+
 #endif
 
     // TODO:: Change visualization spin time laps
@@ -183,9 +141,6 @@ void mainLoop(){
 ////        normal_est.compute(*scene_normals);
 //
 //        // TODO :: run CUDA
-//#if GPU
-//        runCUDA();
-//#endif
 //        //display();
 //    }
 
@@ -254,7 +209,7 @@ void detection_cpu(){
     //
     //  Find Model-Scene Correspondences with KdTree
     //
-    pcl::CorrespondencesPtr model_scene_corrs (new pcl::Correspondences ());
+
 
     pcl::KdTreeFLANN<pcl::SHOT352> match_search;
     match_search.setInputCloud (model_descriptors);

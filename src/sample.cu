@@ -309,6 +309,7 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
 
     int _grid_count_max = pc_dimension[0] + pc_dimension[0] * pc_dimension[1] + pc_dimension[0] * pc_dimension[1] * pc_dimension[2];
     std::cout << "Max possible grid index is " << _grid_count_max << std::endl;
+    assert(_grid_count_max < N);
 
     //Eigen::Vector4i grid_res = Eigen::Vector4i(1, pc_dimension[0], pc_dimension[0] * pc_dimension[1], 0);
     cudaMalloc((void**) &dev_pc, N * sizeof(PointType));

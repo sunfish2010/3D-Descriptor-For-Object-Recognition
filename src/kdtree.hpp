@@ -19,14 +19,14 @@ public :
     int id;
     T data;
     int axis;
-
+    typename std::vector<T>::iterator search_begin;
+    typename std::vector<T>::iterator search_end;
 
     Node():left(-1), right(-1), parent(-1), id(-1), axis(-1){}
     ~Node()= default;
     //int getAxis();
 private:
-    typename std::vector<T>::iterator search_begin;
-    typename std::vector<T>::iterator search_end;
+
 
 };
 
@@ -35,29 +35,32 @@ private:
 template <typename T>
 class KDTree{
 public:
-    KDTree()= default;
+    KDTree();
     virtual ~KDTree()= default;
-    void make_tree (const std::vector<T> &input);
+    void make_tree (std::vector<T> &input);
     std::vector<Node<T>> getTree()const { return tree; }
-
-    virtual bool sortDim(const T& a, const T& b) = 0;
+    int getAxis()const {return _axis;}
+    static void sortDim(const T& a, const T& b);
+protected:
+    int _dim;
+    int _axis;
 
 private:
     std::vector<Node<T>> tree;
     int num_elements;
-    int _dim;
-    int _axis;
 
 };
 
+
+
+
 template <typename T>
-void KDTree<T>::make_tree(const std::vector<T> &input) {
-    std::vector<T> _input = input;
+void KDTree<T>::make_tree(std::vector<T> &input) {
     Node<T> root;
     root.id = num_elements++;
     root.axis = 0;
-    root.search_begin = _input.begin();
-    root.search_end = _input.end();
+    root.search_begin = input.begin();
+    root.search_end = input.end();
 
     std::vector<Node<T>>Nodes;
 
@@ -76,8 +79,8 @@ void KDTree<T>::make_tree(const std::vector<T> &input) {
             right.parent = curr.id;
             _axis = curr.axis % _dim;
             std::sort(curr.search_begin, curr.search_end, this->sortDim);
-            auto mid = (curr.search_end - curr.search_begin)/2;
-            curr.data = _input[mid];
+            typename std::vector<T>::iterator mid = curr.search_begin + (curr.search_end - curr.search_begin)/2;
+            curr.data = *mid;
             left.search_begin = curr.search_begin;
             left.search_end = mid - 1;
             right.search_begin = mid + 1;

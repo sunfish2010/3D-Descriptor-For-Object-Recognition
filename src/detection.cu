@@ -1,5 +1,5 @@
 #include "detection.h"
-
+#include <pcl/features/normal_3d_omp.h>
 //static int n_scene;
 //static int n_model;
 
@@ -9,10 +9,59 @@
 //static PointType *dev_kp_model = NULL;
 
 
-void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
-                   pcl::PointCloud<PointType >::Ptr model_keypoints,
-                   pcl::PointCloud<pcl::Normal>::ConstPtr model_normals,
-                   pcl::PointCloud<pcl::SHOT352>::Ptr model_descriptors){
+void detectionInit(const pcl::PointCloud<PointType>::ConstPtr &model,
+                   const pcl::PointCloud<PointType >::Ptr &model_keypoints,
+                   const pcl::PointCloud<pcl::Normal>::Ptr &model_normals,
+                   const pcl::PointCloud<pcl::SHOT352>::Ptr &model_descriptors){
+
+    computeDescriptor(model, model_keypoints, model_normals, model_descriptors);
+
+
+}
+
+void detectFree(){
+//    cudaFree(dev_ss_pc_model);
+//    cudaFree(dev_ss_pc_scene);
+//    cudaFree(dev_kp_model);
+//    cudaFree(dev_kp_scene);
+
+//    dev_ss_pc_scene = NULL;
+//    dev_ss_pc_model = NULL;
+//    dev_kp_scene = NULL;
+//    dev_kp_model = NULL;
+//
+//    checkCUDAError("cuda Free error");
+
+}
+
+
+void detect(const pcl::PointCloud<pcl::SHOT352>::ConstPtr &model_descriptors,
+            const pcl::PointCloud<PointType>::ConstPtr &scene,
+            const pcl::PointCloud<PointType >::Ptr &scene_keypoints,
+            const pcl::PointCloud<pcl::Normal>::Ptr &scene_normals,
+            const pcl::PointCloud<pcl::SHOT352>::Ptr &scene_descriptors,
+            const pcl::CorrespondencesPtr &model_scene_corrs){
+
+    computeDescriptor(scene, scene_keypoints, scene_normals, scene_descriptors);
+
+    Search corr_search;
+    corr_search.setInputCloud(model_descriptors);
+    corr_search.setSearchCloud(scene_descriptors);
+    corr_search.setK(1);
+    corr_search.search(model_scene_corrs);
+}
+
+
+void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
+                       const pcl::PointCloud<PointType >::Ptr &model_keypoints,
+                       const pcl::PointCloud<pcl::Normal>::Ptr &model_normals,
+                       const pcl::PointCloud<pcl::SHOT352>::Ptr &model_descriptors){
+
+    // compute normals
+    pcl::NormalEstimationOMP<PointType, pcl::Normal> normal_est;
+    normal_est.setKSearch(10);
+    normal_est.setInputCloud(model);
+    normal_est.compute(*model_normals);
 
     //compute the common characters for the whole background
     unsigned int N = model->points.size();
@@ -59,23 +108,5 @@ void detectionInit(pcl::PointCloud<PointType >::ConstPtr model,
 //    descrip_shot.setGridIndices(grid_indices);
     descrip_shot.setSurface(model);
     descrip_shot.compute(*model_descriptors, inv_radius, pc_dimension, min_pi);
-
-
-
-
-}
-
-void detectFree(){
-//    cudaFree(dev_ss_pc_model);
-//    cudaFree(dev_ss_pc_scene);
-//    cudaFree(dev_kp_model);
-//    cudaFree(dev_kp_scene);
-
-//    dev_ss_pc_scene = NULL;
-//    dev_ss_pc_model = NULL;
-//    dev_kp_scene = NULL;
-//    dev_kp_model = NULL;
-//
-//    checkCUDAError("cuda Free error");
 
 }
