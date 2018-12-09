@@ -15,6 +15,7 @@ Features are critical in many computer vision problems. In 2D image space, there
 For point clouds, there exists the famous library PCL. I refer to original papers and their implementations and use their implementations as a baseline to test performance and correctness. 
 
 Below is a sample demo for detection of a milk cartoon in a rather simple scene. The demo used SHOT Descriptor with only geometric information. 
+
 ![](images/cuda-3d-descriptor.gif)
 
 Regardless of what descriptors/features exactly to use for object detection. There are some common steps during the process:
