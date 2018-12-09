@@ -25,13 +25,14 @@ public :
     int left, right, parent;
     int id;
     int idx;
+    bool isleft;
 //    pcl::SHOT352 data;
     int axis;
 //    std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>::iterator search_begin;
 //    std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>::iterator search_end;
     std::vector<int>::iterator search_begin;
     std::vector<int>::iterator search_end;
-    Node():left(-1), right(-1), parent(-1), id(-1), axis(-1), search_begin(nullptr), search_end(nullptr){}
+    Node():left(-1), right(-1), parent(-1), id(-1), axis(-1), isleft(false), search_begin(nullptr), search_end(nullptr){}
     ~Node()= default;
     //int getAxis();
 private:
@@ -44,7 +45,7 @@ private:
 class KDTree{
 public:
     KDTree():_dim(352), _axis(0),_num_elements(0){kdtree = this;}
-    virtual ~KDTree()= default;
+    ~KDTree()= default;
     void make_tree (const std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>& input);
     std::vector<Node, Eigen::aligned_allocator<Node>> getTree()const { return tree; }
 //    static bool sortDim(const pcl::SHOT352& a, const pcl::SHOT352& b){
@@ -66,9 +67,8 @@ class Search{
 public:
 
     explicit Search(int k):_k(k){};
-    Search():_k(1), dev_input(NULL),
-             dev_neighbor_indices(NULL), dev_search(NULL), _N_input(0), _N_search(0){};
-    ~Search();
+    Search():_k(1), _N_input(0), _N_search(0){};
+    ~Search() = default;
 
     inline void setK(int k){
         _k = k;
@@ -84,7 +84,7 @@ public:
 
     void search(const pcl::CorrespondencesPtr &model_scene_corrs);
 
-    inline IndicesConstPtr getNeighborIndices(){return IndicesConstPtr(&_neighbor_indices);}
+//    inline IndicesConstPtr getNeighborIndices(){return IndicesConstPtr(&_neighbor_indices);}
 
 
 private:
@@ -92,13 +92,11 @@ private:
     pcl::PointCloud<pcl::SHOT352>::ConstPtr _input;
     pcl::PointCloud<pcl::SHOT352>::ConstPtr _search;
 
-    int *dev_neighbor_indices;
-    pcl::SHOT352 *dev_search;
-    pcl::SHOT352 *dev_input;
+
     int _N_input;
     int _N_search;
     KDTree _kdtree;
-    std::vector<int> _neighbor_indices;
+
 
 };
 

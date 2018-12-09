@@ -27,7 +27,7 @@ void KDTree::make_tree(const std::vector<pcl::SHOT352, Eigen::aligned_allocator<
             }
 
             Node left, right;
-            _axis = curr.axis
+            _axis = curr.axis;
 
             std::sort(curr.search_begin, curr.search_end,
                       [&input](size_t i1, size_t i2){
@@ -115,11 +115,11 @@ __global__ void kernFindCorrespondence(int N, const Node* nodes, const pcl::SHOT
                 curr_node = query.descriptor[split_axis] > input[n_idx].descriptor[split_axis]?
                         nodes[curr_node].right: nodes[curr_node].left;
             }
-            if (explored ||node[n_closest].parent == -1){
+            if (explored ||nodes[n_closest].parent == -1){
                 break;
             } else{
                 // explore parents
-                curr_node = node[n_closest].parent;
+                curr_node = nodes[n_closest].parent;
                 n_idx = nodes[curr_node].idx;
                 split_axis = nodes[curr_node].axis;
                 float hyper_dist = query.descriptor[split_axis] - input[n_idx].descriptor[split_axis];
@@ -132,17 +132,11 @@ __global__ void kernFindCorrespondence(int N, const Node* nodes, const pcl::SHOT
             }
         }
         indices[index] = nodes[n_closest].idx;
-
+        dist[index] = d_closest;
     }
 }
 
 
-Search::~Search() {
-
-//    cudaFree(dev_grid_indices);
-    dev_neighbor_indices = NULL;
-
-}
 
 
 void Search::setInputCloud(const pcl::PointCloud<pcl::SHOT352>::ConstPtr &input) {
@@ -153,14 +147,23 @@ void Search::setInputCloud(const pcl::PointCloud<pcl::SHOT352>::ConstPtr &input)
 }
 
 void Search::search(const pcl::CorrespondencesPtr &model_scene_corrs) {
-    if (!_search || !_input || _N_input > _N_search){
+    if (!_search || !_input || _N_input > _N_search || _N_input == 0 || _N_search == 0){
         std::cerr << "Search function not properly setup" << std::endl;
         exit(1);
     }
 
     const std::vector<Node, Eigen::aligned_allocator<Node>>& tree = _kdtree.getTree();
     assert(_N_input == tree.size());
+
+    int *dev_neighbor_indices = NULL;
+    pcl::SHOT352 *dev_search = NULL;
+    pcl::SHOT352 *dev_input = NULL;
     Node* dev_tree = NULL;
+    float *dev_dist = NULL;
+    std::vector<int> _neighbor_indices;
+    std::vector<float> _neighbor_distances;
+
+
     cudaMalloc((void**)&dev_tree, _N_input * sizeof(Node));
     checkCUDAError("cudamalloc dev tree error");
     cudaMemcpy(dev_tree, &tree[0], _N_input * sizeof(Node), cudaMemcpyDeviceToHost);
@@ -174,35 +177,46 @@ void Search::search(const pcl::CorrespondencesPtr &model_scene_corrs) {
     cudaMalloc((void**)&dev_input, _N_input * sizeof(pcl::SHOT352));
     checkCUDAError("malloc dev_neighbor distances error");
     cudaMemcpy(dev_input, &(_input->points[0]), _N_input * sizeof(pcl::SHOT352), cudaMemcpyHostToDevice);
+    checkCUDAError("dev input memcpy error");
 
     cudaMalloc((void**)&dev_search, _N_search * sizeof(pcl::SHOT352));
     checkCUDAError("malloc dps error");
     cudaMemcpy(dev_search, &(_search->points[0]), _N_search * sizeof(pcl::SHOT352), cudaMemcpyHostToDevice);
     checkCUDAError("memcpy ps error");
 
-    float *dev_dist = NULL;
-    cudaMalloc((void**)&dev_dist, _N_search * sizeof(float) );
+
+    cudaMalloc((void**)&dev_dist, _N_search * sizeof(float));
     checkCUDAError("dev_dist malloc");
 
 
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((_N_search + blockSize - 1)/blockSize));
 
-//    kernSearchCorrespondence
-
+    kernFindCorrespondence<<<fullBlockPerGrid_points, blockSize>>>(_N_search, dev_tree, dev_input, dev_search,
+            dev_neighbor_indices, dev_dist);
     checkCUDAError("KernSearchCorres error");
 
 
     _neighbor_indices.resize(_N_search);
-    cudaMemcpy(&_neighbor_indices[0], dev_neighbor_indices, sizeof(int) * _N_search, cudaMemcpyDeviceToHost);
+    cudaMemcpy(&(_neighbor_indices[0]), dev_neighbor_indices, sizeof(int) * _N_search, cudaMemcpyDeviceToHost);
     checkCUDAError("cudamemcpy  num neigbors issue");
 
+    _neighbor_distances.resize(_N_search);
+    cudaMemcpy(&(_neighbor_distances[0]), dev_dist, sizeof(float) * _N_search, cudaMemcpyDeviceToHost);
 
-    for(auto&n: _neighbor_indices)
-        std::cout << n << std::endl;
+
+    for (int i = 0; i < _N_search; ++i){
+        if(_neighbor_distances[i] < 0.25f){
+            pcl::Correspondence corr (_neighbor_indices[i], i, _neighbor_distances[i]);
+            model_scene_corrs->push_back (corr);
+        }
+    }
 
     cudaFree(dev_search);
     cudaFree(dev_input);
     cudaFree(dev_neighbor_indices);
+    cudaFree(dev_dist);
+    cudaFree(dev_tree);
+    checkCUDAError("cuda free search");
 
 
 }
