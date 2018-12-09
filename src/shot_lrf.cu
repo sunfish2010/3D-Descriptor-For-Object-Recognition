@@ -1,6 +1,21 @@
-//
-// Created by sun on 11/26/18.
-//
+/**  Reference
+ *   - F. Tombari, S. Salti, L. Di Stefano
+ *     Unique Signatures of Histograms for Local Surface Description.
+ *     In Proceedings of the 11th European Conference on Computer Vision (ECCV),
+         *     Heraklion, Greece, September 5-11 2010.
+ *   - F. Tombari, S. Salti, L. Di Stefano
+ *     A Combined Texture-Shape Descriptor For Enhanced 3D Feature Matching.
+ *     In Proceedings of the 18th International Conference on Image Processing (ICIP),
+        *     Brussels, Belgium, September 11-14 2011.
+ *
+ * \author Samuele Salti, Federico Tombari
+ *
+ *
+ * Used mostly PCL's Implementation with own modification to run in CUDA
+ *
+ *
+ */
+
 #include "shot_lrf.h"
 #include <Eigen/Eigenvalues>
 __device__ Eigen::Vector4f getVector4f(PointType pt){
@@ -27,6 +42,7 @@ __device__ double AtomicAdd(double *address, double val){
 }
 
 #endif
+
 
 /** \brief radius search
  * N : number of surface pts,

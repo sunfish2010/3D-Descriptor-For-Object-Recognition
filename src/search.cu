@@ -1,6 +1,7 @@
 #include "search.h"
 
 
+/** \brief Construct kdtree in cpu **/
 void KDTree::make_tree(const std::vector<pcl::SHOT352, Eigen::aligned_allocator<pcl::SHOT352>>& input) {
 
     std::vector<int> indices(input.size());
@@ -75,10 +76,10 @@ void KDTree::make_tree(const std::vector<pcl::SHOT352, Eigen::aligned_allocator<
             tree.emplace_back(curr);
         }
     }
-
-
 }
 
+
+/** \brief calculate L2 distance between descriptor **/
 __device__ float descriptorDistance(const pcl::SHOT352& pt1, const pcl::SHOT352 &pt2){
     const int desclen_ = 352;
     float dist = 0;
@@ -90,6 +91,7 @@ __device__ float descriptorDistance(const pcl::SHOT352& pt1, const pcl::SHOT352 
 }
 
 
+/** \brief find nearest neighbor with kdtree **/
 __global__ void kernFindCorrespondence(int N, const Node* nodes, const pcl::SHOT352* input, const pcl::SHOT352* queries,
         int* indices, float* dist){
     int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -137,14 +139,13 @@ __global__ void kernFindCorrespondence(int N, const Node* nodes, const pcl::SHOT
 }
 
 
-
-
 void Search::setInputCloud(const pcl::PointCloud<pcl::SHOT352>::ConstPtr &input) {
     _input = input;
     _N_input = static_cast<int>(input->points.size());
     _kdtree.make_tree(input->points);
 
 }
+
 
 void Search::search(const pcl::CorrespondencesPtr &model_scene_corrs) {
     if (!_search || !_input || _N_input > _N_search || _N_input == 0 || _N_search == 0){
@@ -217,6 +218,5 @@ void Search::search(const pcl::CorrespondencesPtr &model_scene_corrs) {
     cudaFree(dev_dist);
     cudaFree(dev_tree);
     checkCUDAError("cuda free search");
-
 
 }

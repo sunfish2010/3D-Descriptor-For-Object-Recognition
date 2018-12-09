@@ -1,30 +1,48 @@
 #include "shot.h"
 #include "shot_lrf.h"
 
+/**  Reference
+ *   - F. Tombari, S. Salti, L. Di Stefano
+ *     Unique Signatures of Histograms for Local Surface Description.
+ *     In Proceedings of the 11th European Conference on Computer Vision (ECCV),
+         *     Heraklion, Greece, September 5-11 2010.
+ *   - F. Tombari, S. Salti, L. Di Stefano
+ *     A Combined Texture-Shape Descriptor For Enhanced 3D Feature Matching.
+ *     In Proceedings of the 18th International Conference on Image Processing (ICIP),
+        *     Brussels, Belgium, September 11-14 2011.
+ *
+ * \author Samuele Salti, Federico Tombari
+ *
+ *
+ * Used mostly PCL's Implementation with own modification to run in CUDA
+ *
+ *
+ */
 
-__global__ void computeBinDistShape(int N,const pcl::Normal* norms, const pcl::ReferenceFrame *lrf,
-        double *bin_dist, int* neighbor_indices, const int n_bin, const int k){
-    int index = threadIdx.x + blockIdx.x * blockDim.x;
-    if (index < N){
-        for (int i = 0; i < k; ++i){
-            if (neighbor_indices[index * k + i] != -1){
-                const pcl::Normal& norm = norms[neighbor_indices[index * k + i]];
-                if (! isfinite(norm.normal_x) || !isfinite(norm.normal_y) || !isfinite(norm.normal_z)){
-                    bin_dist[index * k + i] = NAN;
-                }else{
-                    double cosDesc = norm.normal_x * lrf[index].z_axis[0] +
-                                     norm.normal_y * lrf[index].z_axis[1] + norm.normal_z * lrf[index].z_axis[2];
-                    if (cosDesc > 1) cosDesc = 1;
-                    else if (cosDesc < -1) cosDesc = -1;
-                    bin_dist[index * k + i] = ((1.0 + cosDesc) * n_bin) / 2;
-                }
-            }
-            else
-                bin_dist[index * k + i] = NAN;
-
-        }
-    }
-}
+//
+//__global__ void computeBinDistShape(int N,const pcl::Normal* norms, const pcl::ReferenceFrame *lrf,
+//        double *bin_dist, int* neighbor_indices, const int n_bin, const int k){
+//    int index = threadIdx.x + blockIdx.x * blockDim.x;
+//    if (index < N){
+//        for (int i = 0; i < k; ++i){
+//            if (neighbor_indices[index * k + i] != -1){
+//                const pcl::Normal& norm = norms[neighbor_indices[index * k + i]];
+//                if (! isfinite(norm.normal_x) || !isfinite(norm.normal_y) || !isfinite(norm.normal_z)){
+//                    bin_dist[index * k + i] = NAN;
+//                }else{
+//                    double cosDesc = norm.normal_x * lrf[index].z_axis[0] +
+//                                     norm.normal_y * lrf[index].z_axis[1] + norm.normal_z * lrf[index].z_axis[2];
+//                    if (cosDesc > 1) cosDesc = 1;
+//                    else if (cosDesc < -1) cosDesc = -1;
+//                    bin_dist[index * k + i] = ((1.0 + cosDesc) * n_bin) / 2;
+//                }
+//            }
+//            else
+//                bin_dist[index * k + i] = NAN;
+//
+//        }
+//    }
+//}
 
 __device__ void rgb2lab(const float* LUT, const unsigned char r, const unsigned char g, const unsigned char b, float &a, float &b2, float &l){
     float x = (LUT[r] * 0.412453f + LUT[g] * 0.357580f + LUT[b] * 0.180423f) / 0.95047f;
@@ -53,50 +71,50 @@ __device__ void rgb2lab(const float* LUT, const unsigned char r, const unsigned 
 
 }
 
-__global__ void computeBinColorShape(int N, const PointType* surface, double *bin_dist, const int* neighbor_indices,
-        const int k, const int n_color_bin){
-    // even if the same computation is performed many times, it should still be faster that global memory
-     __shared__ float LUT[256 + 4000];
-    int index = threadIdx.x + blockIdx.x * blockDim.x;
-    int num = (4000 + 256)/blockSize + 1;
-    for (int i = 0; i < num; i++){
-        int idx = num * threadIdx.x + i;
-        if (idx  < 4000 + 256){
-            if (idx < 256){
-                float f = static_cast<float>(idx)/ 255.f;
-                if (f > 0.04045)
-                    LUT[idx] = powf((f + 0.055f)/1.055f, 2.4f);
-                else
-                    LUT[idx] = f / 12.92f;
-            }else{
-                float f = static_cast<float>(idx) / 4000.f;
-                if (f > 0.008856)
-                    LUT[idx] = powf(f, 0.3333f);
-                else
-                    LUT[idx] = (7.787f * f) + (16.f / 116.f);
-            }
-        }
-    }
-    __syncthreads();
-
-    if (index < N){
-        float L,A,B;
-        rgb2lab(LUT, surface[index].r, surface[index].g, surface[index].b, A, B, L );
-        for (int i = 0; i < k; ++i){
-            if (neighbor_indices[index * k + i] != -1){
-                float l, a, b;
-                int neighbor = neighbor_indices[index * k + i];
-                rgb2lab(LUT, surface[neighbor].r, surface[neighbor].g, surface[neighbor].b, a, b, l);
-                double color_dist = (fabs(L - l) + (fabs(A - a) + fabs(B - b))/2) / 3;
-                color_dist = color_dist > 1.0? 1.0:color_dist;
-                color_dist = color_dist < 0.0? 0.0:color_dist;
-                bin_dist[index * k + i] = color_dist * n_color_bin;
-            }else{
-                bin_dist[index * k + i] = NAN;
-            }
-        }
-    }
-}
+//__global__ void computeBinColorShape(int N, const PointType* surface, double *bin_dist, const int* neighbor_indices,
+//        const int k, const int n_color_bin){
+//    // even if the same computation is performed many times, it should still be faster that global memory
+//     __shared__ float LUT[256 + 4000];
+//    int index = threadIdx.x + blockIdx.x * blockDim.x;
+//    int num = (4000 + 256)/blockSize + 1;
+//    for (int i = 0; i < num; i++){
+//        int idx = num * threadIdx.x + i;
+//        if (idx  < 4000 + 256){
+//            if (idx < 256){
+//                float f = static_cast<float>(idx)/ 255.f;
+//                if (f > 0.04045)
+//                    LUT[idx] = powf((f + 0.055f)/1.055f, 2.4f);
+//                else
+//                    LUT[idx] = f / 12.92f;
+//            }else{
+//                float f = static_cast<float>(idx) / 4000.f;
+//                if (f > 0.008856)
+//                    LUT[idx] = powf(f, 0.3333f);
+//                else
+//                    LUT[idx] = (7.787f * f) + (16.f / 116.f);
+//            }
+//        }
+//    }
+//    __syncthreads();
+//
+//    if (index < N){
+//        float L,A,B;
+//        rgb2lab(LUT, surface[index].r, surface[index].g, surface[index].b, A, B, L );
+//        for (int i = 0; i < k; ++i){
+//            if (neighbor_indices[index * k + i] != -1){
+//                float l, a, b;
+//                int neighbor = neighbor_indices[index * k + i];
+//                rgb2lab(LUT, surface[neighbor].r, surface[neighbor].g, surface[neighbor].b, a, b, l);
+//                double color_dist = (fabs(L - l) + (fabs(A - a) + fabs(B - b))/2) / 3;
+//                color_dist = color_dist > 1.0? 1.0:color_dist;
+//                color_dist = color_dist < 0.0? 0.0:color_dist;
+//                bin_dist[index * k + i] = color_dist * n_color_bin;
+//            }else{
+//                bin_dist[index * k + i] = NAN;
+//            }
+//        }
+//    }
+//}
 
 
 inline __device__ bool areEquals (double val1, double val2)
@@ -212,7 +230,8 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                         zInFeatRef = 0;
 
                     unsigned char bit4 = ((yInFeatRef > 0) || ((yInFeatRef == 0.0) && (xInFeatRef < 0))) ? 1 : 0;
-                    unsigned char bit3 = static_cast<unsigned char> (((xInFeatRef > 0) || ((xInFeatRef == 0.0) && (yInFeatRef > 0))) ? !bit4 : bit4);
+                    unsigned char bit3 = static_cast<unsigned char> (((xInFeatRef > 0) || ((xInFeatRef == 0.0)
+                            && (yInFeatRef > 0))) == !bit4 );
 
                     assert (bit3 == 0 || bit3 == 1);
 
@@ -244,14 +263,18 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                     double intWeightColor = (1- fabs (bin_color_dist[num_neighbors]));
 
                     if (bin_dist[num_neighbors] > 0)
-                        shot[offset + volume_index_shape + ((step_index_shape + 1) % n_dist_bin)] += static_cast<float> (bin_dist[num_neighbors]);
+                        shot[offset + volume_index_shape + ((step_index_shape + 1) % n_dist_bin)] +=
+                                static_cast<float> (bin_dist[num_neighbors]);
                     else
-                        shot[offset + volume_index_shape + ((step_index_shape - 1 + n_dist_bin) % n_dist_bin)] -= static_cast<float> (bin_dist[num_neighbors]);
+                        shot[offset + volume_index_shape + ((step_index_shape - 1 + n_dist_bin) % n_dist_bin)] -=
+                                static_cast<float> (bin_dist[num_neighbors]);
 
                     if (bin_color_dist[num_neighbors] > 0)
-                        shot[offset + volume_index_color + ((step_index_color+1) % n_color_bin)] += static_cast<float> (bin_color_dist[num_neighbors]);
+                        shot[offset + volume_index_color + ((step_index_color+1) % n_color_bin)] +=
+                                static_cast<float> (bin_color_dist[num_neighbors]);
                     else
-                        shot[offset + volume_index_color + ((step_index_color - 1 + n_color_bin) % n_color_bin)] -= static_cast<float> (bin_color_dist[num_neighbors]);
+                        shot[offset + volume_index_color + ((step_index_color - 1 + n_color_bin) % n_color_bin)] -=
+                                static_cast<float> (bin_color_dist[num_neighbors]);
 
                     //Interpolation on the distance (adjacent husks)
 
@@ -268,8 +291,10 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                         {
                             intWeightShape += 1 + radiusDistance;
                             intWeightColor += 1 + radiusDistance;
-                            shot[offset + (desc_index - 2) * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (radiusDistance);
-                            shot[offset + shapeToColorStride + (desc_index - 2) * (n_color_bin+1) + step_index_color] -= static_cast<float> (radiusDistance);
+                            shot[offset + (desc_index - 2) * (n_dist_bin+1) + step_index_shape] -=
+                                    static_cast<float> (radiusDistance);
+                            shot[offset + shapeToColorStride + (desc_index - 2) * (n_color_bin+1) + step_index_color] -=
+                                    static_cast<float> (radiusDistance);
                         }
                     }
                     else    //internal sphere
@@ -279,14 +304,16 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                         if (distance < radius1_4_) //most internal sector, votes only for itself
                         {
                             intWeightShape += 1 + radiusDistance;
-                            intWeightColor += 1 + radiusDistance; //weight=1-d
+                            intWeightColor += 1 + radiusDistance;
                         }
                         else  //3/4 of radius, votes also for the external sphere
                         {
-                            intWeightShape += 1 - radiusDistance; //weight=1-d
-                            intWeightColor += 1 - radiusDistance; //weight=1-d
-                            shot[offset + (desc_index + 2) * (n_dist_bin+1) + step_index_shape] += static_cast<float> (radiusDistance);
-                            shot[offset + shapeToColorStride + (desc_index + 2) * (n_color_bin+1) + step_index_color] += static_cast<float> (radiusDistance);
+                            intWeightShape += 1 - radiusDistance;
+                            intWeightColor += 1 - radiusDistance;
+                            shot[offset + (desc_index + 2) * (n_dist_bin+1) + step_index_shape] +=
+                                    static_cast<float> (radiusDistance);
+                            shot[offset + shapeToColorStride + (desc_index + 2) * (n_color_bin+1) + step_index_color] +=
+                                    static_cast<float> (radiusDistance);
                         }
                     }
 
@@ -313,10 +340,12 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                         {
                             intWeightShape += 1 + inclinationDistance;
                             intWeightColor += 1 + inclinationDistance;
-                            assert ((desc_index + 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index + 1) * (n_dist_bin+1) + step_index_shape < descLength_);
-                            assert (shapeToColorStride + (desc_index + 1) * (n_color_bin+ 1) + step_index_color >= 0 && shapeToColorStride + (desc_index + 1) * (n_color_bin+1) + step_index_color < descLength_);
-                            shot[offset + (desc_index + 1) * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (inclinationDistance);
-                            shot[offset + shapeToColorStride + (desc_index + 1) * (n_color_bin+1) + step_index_color] -= static_cast<float> (inclinationDistance);
+//                            assert ((desc_index + 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index + 1) * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert (shapeToColorStride + (desc_index + 1) * (n_color_bin+ 1) + step_index_color >= 0 && shapeToColorStride + (desc_index + 1) * (n_color_bin+1) + step_index_color < descLength_);
+                            shot[offset + (desc_index + 1) * (n_dist_bin+1) + step_index_shape] -=
+                                    static_cast<float> (inclinationDistance);
+                            shot[offset + shapeToColorStride + (desc_index + 1) * (n_color_bin+1) + step_index_color] -=
+                                    static_cast<float> (inclinationDistance);
                         }
                     }
                     else
@@ -331,15 +360,17 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                         {
                             intWeightShape += 1 - inclinationDistance;
                             intWeightColor += 1 - inclinationDistance;
-                            if (!((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_)){
-                                printf("desc_index is %d, step_index_shape is %d, n_dist_bin: %d, num_neighbors %d, bin_dist: %f  \n",
-                                        desc_index, step_index_shape, n_dist_bin, num_neighbors, bin_dist[num_neighbors]);
-                            }
+//                            if (!((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_)){
+//                                printf("desc_index is %d, step_index_shape is %d, n_dist_bin: %d, num_neighbors %d, bin_dist: %f  \n",
+//                                        desc_index, step_index_shape, n_dist_bin, num_neighbors, bin_dist[num_neighbors]);
+//                            }
 
-                            assert ((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_);
-                            assert (shapeToColorStride + (desc_index - 1) * (n_color_bin+ 1) + step_index_color >= 0 && shapeToColorStride + (desc_index - 1) * (n_color_bin+1) + step_index_color < descLength_);
-                            shot[offset + (desc_index - 1) * (n_dist_bin+1) + step_index_shape] += static_cast<float> (inclinationDistance);
-                            shot[offset + shapeToColorStride + (desc_index - 1) * (n_color_bin+1) + step_index_color] += static_cast<float> (inclinationDistance);
+//                            assert ((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert (shapeToColorStride + (desc_index - 1) * (n_color_bin+ 1) + step_index_color >= 0 && shapeToColorStride + (desc_index - 1) * (n_color_bin+1) + step_index_color < descLength_);
+                            shot[offset + (desc_index - 1) * (n_dist_bin+1) + step_index_shape] +=
+                                    static_cast<float> (inclinationDistance);
+                            shot[offset + shapeToColorStride + (desc_index - 1) * (n_color_bin+1) + step_index_color] +=
+                                    static_cast<float> (inclinationDistance);
                         }
                     }
 
@@ -353,7 +384,7 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                         double angularSectorStart = - PST_RAD_PI_7_8;
 
                         double azimuthDistance = (azimuth - (angularSectorStart + angularSectorSpan*sel)) / angularSectorSpan;
-                        assert ((azimuthDistance < 0.5 || areEquals (azimuthDistance, 0.5)) && (azimuthDistance > - 0.5 || areEquals (azimuthDistance, - 0.5)));
+//                        assert ((azimuthDistance < 0.5 || areEquals (azimuthDistance, 0.5)) && (azimuthDistance > - 0.5 || areEquals (azimuthDistance, - 0.5)));
                         azimuthDistance = max(- 0.5, min (azimuthDistance, 0.5));
 
                         if (azimuthDistance > 0)
@@ -361,20 +392,24 @@ __global__ void computeCOLORSHOT(int N, int n, const PointType *surface, const f
                             intWeightShape += 1 - azimuthDistance;
                             intWeightColor += 1 - azimuthDistance;
                             int interp_index = (desc_index + 4) % maxAngularSectors_;
-                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
-                            assert (shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color >= 0 && shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color < descLength_);
-                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] += static_cast<float> (azimuthDistance);
-                            shot[offset + shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color] += static_cast<float> (azimuthDistance);
+//                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert (shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color >= 0 && shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color < descLength_);
+                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] +=
+                                    static_cast<float> (azimuthDistance);
+                            shot[offset + shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color] +=
+                                    static_cast<float> (azimuthDistance);
                         }
                         else
                         {
                             int interp_index = (desc_index - 4 + maxAngularSectors_) % maxAngularSectors_;
                             intWeightShape += 1 + azimuthDistance;
                             intWeightColor += 1 + azimuthDistance;
-                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
-                            assert (shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color >= 0 && shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color < descLength_);
-                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (azimuthDistance);
-                            shot[offset + shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color] -= static_cast<float> (azimuthDistance);
+//                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
+//                            assert (shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color >= 0 && shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color < descLength_);
+                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] -=
+                                    static_cast<float> (azimuthDistance);
+                            shot[offset + shapeToColorStride + interp_index * (n_color_bin+1) + step_index_color] -=
+                                    static_cast<float> (azimuthDistance);
                         }
                     }
 
@@ -464,7 +499,8 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         zInFeatRef = 0;
 
                     unsigned char bit4 = ((yInFeatRef > 0) || ((yInFeatRef == 0.0) && (xInFeatRef < 0))) ? 1 : 0;
-                    unsigned char bit3 = static_cast<unsigned char> (((xInFeatRef > 0) || ((xInFeatRef == 0.0) && (yInFeatRef > 0))) ? !bit4 : bit4);
+                    unsigned char bit3 = static_cast<unsigned char> (((xInFeatRef > 0) ||
+                            ((xInFeatRef == 0.0) && (yInFeatRef > 0))) == (!bit4));
 
                     assert (bit3 == 0 || bit3 == 1);
 
@@ -494,9 +530,11 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                     double intWeightShape = (1- fabs (bin_dist[num_neighbors]));
 
                     if (bin_dist[num_neighbors] > 0)
-                        shot[offset + volume_index_shape + ((step_index_shape + 1) % n_dist_bin)] += static_cast<float> (bin_dist[num_neighbors]);
+                        shot[offset + volume_index_shape + ((step_index_shape + 1) % n_dist_bin)] +=
+                                static_cast<float> (bin_dist[num_neighbors]);
                     else
-                        shot[offset + volume_index_shape + ((step_index_shape - 1 + n_dist_bin) % n_dist_bin)] -= static_cast<float> (bin_dist[num_neighbors]);
+                        shot[offset + volume_index_shape + ((step_index_shape - 1 + n_dist_bin) % n_dist_bin)] -=
+                                static_cast<float> (bin_dist[num_neighbors]);
 
                     //Interpolation on the distance (adjacent husks)
 
@@ -511,7 +549,8 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         else  //3/4 of radius, votes also for the internal sphere
                         {
                             intWeightShape += 1 + radiusDistance;
-                            shot[offset + (desc_index - 2) * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (radiusDistance);
+                            shot[offset + (desc_index - 2) * (n_dist_bin+1) + step_index_shape] -=
+                                    static_cast<float> (radiusDistance);
                         }
                     }
                     else    //internal sphere
@@ -525,7 +564,8 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         else  //3/4 of radius, votes also for the external sphere
                         {
                             intWeightShape += 1 - radiusDistance; //weight=1-d
-                            shot[offset + (desc_index + 2) * (n_dist_bin+1) + step_index_shape] += static_cast<float> (radiusDistance);
+                            shot[offset + (desc_index + 2) * (n_dist_bin+1) + step_index_shape] +=
+                                    static_cast<float> (radiusDistance);
                         }
                     }
 
@@ -551,7 +591,8 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         {
                             intWeightShape += 1 + inclinationDistance;
 //                            assert ((desc_index + 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index + 1) * (n_dist_bin+1) + step_index_shape < descLength_);
-                            shot[offset + (desc_index + 1) * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (inclinationDistance);
+                            shot[offset + (desc_index + 1) * (n_dist_bin+1) + step_index_shape] -=
+                                    static_cast<float> (inclinationDistance);
                         }
                     }
                     else
@@ -565,7 +606,8 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                         {
                             intWeightShape += 1 - inclinationDistance;
 //                            assert ((desc_index - 1) * (n_dist_bin+1) + step_index_shape >= 0 && (desc_index - 1) * (n_dist_bin+1) + step_index_shape < descLength_);
-                            shot[offset + (desc_index - 1) * (n_dist_bin+1) + step_index_shape] += static_cast<float> (inclinationDistance);
+                            shot[offset + (desc_index - 1) * (n_dist_bin+1) + step_index_shape] +=
+                                    static_cast<float> (inclinationDistance);
                         }
                     }
 
@@ -587,14 +629,16 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                             intWeightShape += 1 - azimuthDistance;
                             int interp_index = (desc_index + 4) % maxAngularSectors_;
 //                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
-                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] += static_cast<float> (azimuthDistance);
+                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] +=
+                                    static_cast<float> (azimuthDistance);
                         }
                         else
                         {
                             int interp_index = (desc_index - 4 + maxAngularSectors_) % maxAngularSectors_;
                             intWeightShape += 1 + azimuthDistance;
 //                            assert (interp_index * (n_dist_bin+1) + step_index_shape >= 0 && interp_index * (n_dist_bin+1) + step_index_shape < descLength_);
-                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] -= static_cast<float> (azimuthDistance);
+                            shot[offset + interp_index * (n_dist_bin+1) + step_index_shape] -=
+                                    static_cast<float> (azimuthDistance);
                         }
                     }
 
@@ -710,6 +754,8 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
     cudaMemcpy(&shot[0], dev_shot, sizeof(float) * N * descLength_, cudaMemcpyDeviceToHost);
     checkCUDAError("copy shot error");
 
+
+    // write to output
     for (int i = 0; i < N; ++i){
         int offset = i * descLength_;
         if (!isfinite(shot[offset])){

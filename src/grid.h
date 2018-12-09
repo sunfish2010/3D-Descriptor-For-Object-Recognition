@@ -9,7 +9,7 @@
 class Grid{
 public:
     Grid()= default;
-    ~Grid();
+    ~Grid()= default;
     void setRadius(float radius){this->radius = radius;}
     void computeSceneProperty(const pcl::PointCloud<PointType >::ConstPtr &input,
             const IndicesPtr &grid_indices, const IndicesPtr &array_indices);
@@ -24,9 +24,6 @@ public:
 private:
     float radius=0.f;
     int N=0;
-    PointType *dev_pc=NULL;
-    int *dev_grid_indices=NULL;
-    int *dev_array_indices=NULL;
 
     // property to grab
     Eigen::Vector4i min_pi;

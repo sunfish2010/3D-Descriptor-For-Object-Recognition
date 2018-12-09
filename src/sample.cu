@@ -3,7 +3,7 @@
 #include <cstdio>
 
 static cudaEvent_t start, stop;
-//Copy index
+/** \brief check if is first occurance of particular index  **/
 __global__ void isfirst_indices(int N, int *input, int *res) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
     if (tid < N) {
@@ -17,6 +17,7 @@ __global__ void isfirst_indices(int N, int *input, int *res) {
     }
 }
 
+
 __device__ static float atomicMin(float* address, float val){
     int* address_as_i = (int*) address;
     int old = *address_as_i, assumed;
@@ -29,12 +30,12 @@ __device__ static float atomicMin(float* address, float val){
 }
 
 
-
 struct isFirst {
     __host__ __device__ bool operator()(const int x) {
         return (x != -1);
     }
 };
+
 
 struct keep {
     __host__ __device__ bool operator()(const PointType p) {
@@ -43,14 +44,14 @@ struct keep {
 };
 
 
-
+/** \brief compute distance to grid center  **/
 __device__ float kernComputeDist(PointType pos, Eigen::Vector4i ijk){
     return (pos.x - ijk[0]) * (pos.x - ijk[0]) + (pos.y - ijk[1]) * (pos.y - ijk[1])
            + (pos.z - ijk[2]) * (pos.z - ijk[2]);
 }
 
 
-// uniform downsampling the points
+/** \brief get min max for the point cloud  **/
 __global__ void kernComputeDist(int N, const PointType *pts_in, int *dist, Eigen::Vector4f inv_radius){
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if(index < N){
@@ -64,8 +65,6 @@ __global__ void kernComputeDist(int N, const PointType *pts_in, int *dist, Eigen
 }
 
 
-
-
 /** \brief downsampling the point cloud by using global memory for performance improvement
  * **/
 
@@ -74,9 +73,7 @@ __global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eig
                                             float*min_dist, float*dist){
     int index = threadIdx.x + blockDim.x * blockIdx.x;
     if (index < N){
-//        printf("index is %d \n", index);
         PointType pt = pos[index];
-//        printf("1111111 \n");
         if (isfinite(pt.x) && isfinite(pt.y) && isfinite(pt.z)){
             Eigen::Vector4i ijk(static_cast<int>(floor(pt.x * inv_radius[0])),
                                 static_cast<int>(floor(pt.y * inv_radius[1])), static_cast<int>(floor(pt.z * inv_radius[2])), 0);
@@ -84,21 +81,21 @@ __global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eig
                               + (pt.z - ijk[2]) * (pt.z - ijk[2]);
             Eigen::Vector4i offset = ijk - grid_min;
             int i = offset[0] + offset[1] * grid_res[0] + offset[2] * grid_res[0] * grid_res[1];
-//            printf("index i is %d \n", i);
             grid_indices[index] = i;
             dist[index] = curr_dist;
             atomicMin(&min_dist[i], curr_dist);
-//            printf("min dist is %f, curr dist is %f, index is %d \n", min_dist[i], curr_dist, grid_indices[index]);
         }
     }
 }
 
+
+/** \brief keep only one pt per grid
+ * race condition may happen for pts with same distances, but that's fine
+ * **/
 __global__ void kernDownSample(int N, const float *dist, const float *dist_min, int *grid_indices,  int* keep){
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if (index < N ){
         int grid_i = grid_indices[index];
-//        if (grid_i != 0)
-//            printf("index is %d, kernDOwnsample grid_i is %d\n", index, grid_indices[index]);
         if (dist[index] == dist_min[grid_i]){
             keep[grid_i] = index;
         }
@@ -107,7 +104,8 @@ __global__ void kernDownSample(int N, const float *dist, const float *dist_min, 
 }
 
 
-
+/** \brief reorder the point cloud
+ * **/
 __global__ void kernUniformDownSample(int N, PointType *pts_in, PointType *pts_out, int *indices){
     int index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index < N){
@@ -116,11 +114,14 @@ __global__ void kernUniformDownSample(int N, PointType *pts_in, PointType *pts_o
 }
 
 
+/** \brief for random generation
+ * **/
 __host__ __device__
 thrust::default_random_engine makeSeededRandomEngine(int iter, int index, int depth) {
     int h = utilhash((1 << 31) | (depth << 22) | iter) ^ utilhash(index);
     return thrust::default_random_engine(h);
 }
+
 
 __global__ void kernRandomDownSample(int N, float p, PointType* pos){
     int index = threadIdx.x + (blockIdx.x * blockDim.x);
@@ -295,6 +296,9 @@ UniformDownSample::~UniformDownSample() {
 //}
 
 
+/** \brief downsampling the point cloud by computing dist at one time,
+ * only keeps the one closest
+ * **/
 void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::ConstPtr &input,
                                          const Eigen::Vector4f &inv_radius, const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi ) {
 
@@ -372,8 +376,6 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
 //    cudaMemcpy(&grid_indices[0], dev_grid_indices, sizeof(int) * N, cudaMemcpyDeviceToHost);
 //    checkCUDAError("cudamemcpy grid_indices error");
 
-//    for (auto &i:grid_indices)
-//        std::cout << i << std::endl;
 
     std::cout << N_new << std::endl;
 
@@ -387,6 +389,8 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
 }
 
 
+/** \brief store the result back for display
+ * **/
 void UniformDownSample::display(const pcl::PointCloud<PointType>::ConstPtr &input, const pcl::PointCloud<PointType>::Ptr &output) {
     (*output).height = 1;
     (*output).is_dense = true;
@@ -394,14 +398,9 @@ void UniformDownSample::display(const pcl::PointCloud<PointType>::ConstPtr &inpu
     (*output).points.resize (static_cast<uint32_t>(N_new));
 
 
-//    IndicesPtr kept_indices = IndicesPtr(new std::vector<int>(N_new));
-    std::cout << "initialization" << std::endl;
-
-
     for (int i = 0; i < N_new; i++){
         (*output).points[i] = (*input).points[kept_indices[i]];
     }
-    std::cout << "copy is done" << std::endl;
 
 }
 

@@ -30,7 +30,7 @@ __device__ static float atomicMin(float* address, float val){
 }
 
 
-
+/** \brief get min max for the point cloud  **/
 __global__ void getMinMax(int N ,const PointType *pts_in, Eigen::Vector4f *min_pt, Eigen::Vector4f  *max_pt){
     __shared__ float min_max[6];
     for (int i = 0; i < 3; ++i)
@@ -59,11 +59,12 @@ __global__ void getMinMax(int N ,const PointType *pts_in, Eigen::Vector4f *min_p
     atomicMax(&(*max_pt)[2], min_max[5]);
 }
 
-
+/** \brief 3D to 1D indice  **/
 __device__ int kernComputeIndices(Eigen::Vector4i pos, Eigen::Vector4i grid_res){
     return pos[0] + pos[1] * grid_res[0] + pos[2] * grid_res[1] * grid_res[2];
 }
 
+/** \brief compute the indices the pt belongs to  **/
 __global__ void kernComputeIndices(int N, Eigen::Vector4i grid_res, Eigen::Vector4i grid_min,
                                    Eigen::Vector4f inv_radius, PointType *pos, int *indices, int *grid_indices){
     int index = threadIdx.x + (blockIdx.x *blockDim.x);
@@ -83,7 +84,7 @@ __global__ void kernComputeIndices(int N, Eigen::Vector4i grid_res, Eigen::Vecto
 }
 
 
-
+/** \brief compute point cloud properties for later use  **/
 void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &input, const IndicesPtr &grid_indices,
         const IndicesPtr &array_indices) {
     if (!input || radius <= 0 || !grid_indices || !array_indices){
@@ -92,6 +93,9 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
     float miliseconds = 0;
+    PointType *dev_pc=NULL;
+    int *dev_grid_indices=NULL;
+    int *dev_array_indices=NULL;
 
     N = (int)(*input).size();
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
@@ -159,6 +163,8 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     cudaEventElapsedTime(&miliseconds, start, stop);
     std::cout << "calculating array & grid indices takes  " <<miliseconds << std::endl;
 
+
+    // copy the results if needed.
     if (grid_indices){
         cudaMemcpy(&(*grid_indices)[0], dev_grid_indices, N * sizeof(int), cudaMemcpyDeviceToHost);
         checkCUDAError("kernCopy grid indices failed");
@@ -170,13 +176,9 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     }
 
 //    checkCUDAError("cuda free error");
-
-}
-
-
-Grid::~Grid() {
     cudaFree(dev_array_indices);
     cudaFree(dev_grid_indices);
     cudaFree(dev_pc);
     checkCUDAError("cuda free error");
+
 }

@@ -11,6 +11,7 @@
 #include <thrust/random.h>
 #include <thrust/device_ptr.h>
 #include <thrust/system_error.h>
+
 // check cuda error
 #define FILENAME (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 #define checkCUDAError(msg) _checkCUDAErrorHelper(msg, FILENAME, __LINE__)
@@ -36,7 +37,7 @@ void _checkCUDAErrorHelper(const char *msg, const char *filename, int line) {
 #endif
 }
 
-
+// for random number generation
 __host__ __device__ inline unsigned int utilhash(unsigned int a) {
     a = (a + 0x7ed55d16) + (a << 12);
     a = (a ^ 0xc761c23c) ^ (a >> 19);

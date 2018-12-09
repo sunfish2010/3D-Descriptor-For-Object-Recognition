@@ -15,6 +15,8 @@
 #include <pcl/point_types.h>
 
 #include <chrono>
+
+// for easier typing
 typedef pcl::PointXYZRGB PointType;
 typedef boost::shared_ptr<std::vector<int>> IndicesPtr;
 typedef boost::shared_ptr<const std::vector<int>> IndicesConstPtr;
