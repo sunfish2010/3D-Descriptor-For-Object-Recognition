@@ -26,17 +26,14 @@ public:
 protected:
 
     void computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output,  const Eigen::Vector4f &inv_radius,
-                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);
+                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) override;
 
 
 private:
 //    int *dev_neighbor_indices;
-    int *dev_features_indices;
 //    int *dev_grid_indices;
-    PointType *dev_pos_surface;
-    int *dev_num_neighbors;
-    double *dev_sum;
-    Eigen::Matrix3d* dev_cov;
+
+
     int _N_features;
     int _N_surface;
 

@@ -55,7 +55,7 @@ add_subdirectory(src)
 
 
 cuda_add_executable (${CMAKE_PROJECT_NAME} main.cpp main.hpp)
-#add_executable(${CMAKE_PROJECT_NAME} test.cpp)
+
 target_link_libraries (${CMAKE_PROJECT_NAME}
         ${PCL_LIBRARIES}
         util

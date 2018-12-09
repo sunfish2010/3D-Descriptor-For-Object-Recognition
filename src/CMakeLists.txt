@@ -1,7 +1,5 @@
 
 set(SOURCE_FILES
-        "detection.cu"
-        "detection.h"
         "sample.cu"
         "sample.h"
         "grid.cu"

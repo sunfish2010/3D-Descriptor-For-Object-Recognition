@@ -22,7 +22,7 @@ public:
     inline void setSurface(pcl::PointCloud<PointType>::ConstPtr surface){_surface = surface;}
     inline void setInputCloud(pcl::PointCloud<PointType>::ConstPtr input){_input = input;}
 //    inline void setFeatureNeighborsIndices(const IndicesPtr &neighbor_indices){_neighbor_indices = neighbor_indices;}
-    virtual void setKeptIndices(const IndicesConstPtr &kept_indices){_kept_indices = kept_indices;}
+    inline void setKeptIndices(const IndicesConstPtr &kept_indices){_kept_indices = kept_indices;}
 
     void compute(PointCloudOut &output,  const Eigen::Vector4f &inv_radius,
                  const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi);

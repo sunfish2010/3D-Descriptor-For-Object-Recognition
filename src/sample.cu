@@ -1,4 +1,4 @@
-#include "detection.h"
+#include "sample.h"
 #define VERBOSE 1
 #include <cstdio>
 

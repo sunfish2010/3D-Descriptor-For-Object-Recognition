@@ -151,7 +151,12 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
 //    kdtree.setInputCloud (_search_input);
 //    kdtree.radiusSearch(_search_input->points[(*_kept_indices)[0]], _radius, _neighbor_indices, _neighbor_distances);
 //    std::cout << "Num neighbors: " << _neighbor_distances.size() << std::endl;
-    std::cout << "feature index " << (*_kept_indices)[0] << std::endl;
+//    std::cout << "feature index " << (*_kept_indices)[0] << std::endl;
+
+    int *dev_features_indices = NULL;
+    PointType *dev_pos_surface = NULL;
+    int *dev_num_neighbors = NULL;
+    Eigen::Matrix3d* dev_cov = NULL;
 
     cudaMalloc((void**)&dev_features_indices, _N_features * sizeof(int));
     checkCUDAError("mallod dev_features_indices error");
