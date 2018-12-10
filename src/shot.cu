@@ -795,7 +795,7 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
 
 
     computeSHOT<<<numThreadsPerBlock, blockSize>>> (N, dev_pos_surface, _radius, dev_kept_indices, dev_array_indices,
-             dev_gridCellStartIndices, dev_gridCellStartIndices, pc_dimension, min_pi, max_pi, inv_radius,
+             dev_gridCellStartIndices, dev_gridCellEndIndices, pc_dimension, min_pi, max_pi, inv_radius,
             dev_normals, dev_lrf, nr_shape_bins_, dev_shot);
     checkCUDAError("compute shot error");
 

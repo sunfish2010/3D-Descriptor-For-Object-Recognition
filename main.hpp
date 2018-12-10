@@ -9,6 +9,7 @@
 #include <pcl/common/transforms.h>
 #include <pcl/features/normal_3d_omp.h>
 #include <pcl/recognition/cg/geometric_consistency.h>
+#include <pcl/features/shot_omp.h>
 
 #include "src/sample.h"
 #include "src/shot.h"
@@ -24,18 +25,11 @@ bool showKeyPoints = false;
 bool toggled_keypoints = false;
 bool showNormals = false;
 bool toggled_normals = false;
-bool showCorresp = false;
+bool showCorresp = true;
 bool toggled_corresp = false;
 int iter = 0;
 
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
-
-
-bool init(const pcl::PointCloud<PointType>::ConstPtr &model,
-          const pcl::PointCloud<PointType >::Ptr &model_keypoints,
-          const pcl::PointCloud<pcl::Normal>::Ptr &model_normals,
-          const pcl::PointCloud<pcl::SHOT352>::Ptr &model_descriptors);
-
 
 void keyCallback(const pcl::visualization::KeyboardEvent & event, void *viewer_void);
 void mouseCallback(const pcl::visualization::MouseEvent &event, void *viewer_void);

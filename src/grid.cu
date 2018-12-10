@@ -59,10 +59,10 @@ __global__ void getMinMax(int N ,const PointType *pts_in, Eigen::Vector4f *min_p
     atomicMax(&(*max_pt)[2], min_max[5]);
 }
 
-/** \brief 3D to 1D indice  **/
-__device__ int kernComputeIndices(Eigen::Vector4i pos, Eigen::Vector4i grid_res){
-    return pos[0] + pos[1] * grid_res[0] + pos[2] * grid_res[1] * grid_res[2];
-}
+///** \brief 3D to 1D indice  **/
+//__device__ int kernComputeIndices(Eigen::Vector4i pos, Eigen::Vector4i grid_res){
+//    return
+//}
 
 /** \brief compute the indices the pt belongs to  **/
 __global__ void kernComputeIndices(int N, Eigen::Vector4i grid_res, Eigen::Vector4i grid_min,
@@ -76,7 +76,8 @@ __global__ void kernComputeIndices(int N, Eigen::Vector4i grid_res, Eigen::Vecto
 
 
             Eigen::Vector4i offset = ijk - grid_min;
-            grid_indices[index] = kernComputeIndices(offset, grid_res);
+            int idx = offset[0] + offset[1] * grid_res[0] + offset[2] * grid_res[1] * grid_res[2];
+            grid_indices[index] = idx;
             indices[index] = index;
         }
 
@@ -202,6 +203,11 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
         checkCUDAError("kernCopy array indices failed");
     }
 
+    cudaFree(dev_array_indices);
+    cudaFree(dev_pc);
+    checkCUDAError("cuda free error");
+
+
     int _grid_count = pc_dimension[0] * pc_dimension[1] * pc_dimension[2];
 
     int *dev_gridCellStartIndices = NULL;
@@ -227,9 +233,9 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
 
 
 //    checkCUDAError("cuda free error");
-    cudaFree(dev_array_indices);
     cudaFree(dev_grid_indices);
-    cudaFree(dev_pc);
+    cudaFree(dev_gridCellEndIndices);
+    cudaFree(dev_gridCellStartIndices);
     checkCUDAError("cuda free error");
 
 }

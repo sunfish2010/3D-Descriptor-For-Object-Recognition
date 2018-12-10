@@ -9,7 +9,7 @@
 using namespace std;
 
 #define VERBOSE 1
-#define DISPLAY 0
+#define DISPLAY 1
 #define SHIFT_MODEL 1
 
 int main(int argc, char* argv[]){
@@ -96,6 +96,7 @@ int main(int argc, char* argv[]){
 
     gc_clusterer.recognize (rototranslations, clustered_corrs);
 
+    std::cout << rototranslations.size() << std::endl;
 
 #if DISPLAY
     while (!viewer->wasStopped ()) {
@@ -132,10 +133,34 @@ void detect(const pcl::PointCloud<pcl::SHOT352>::ConstPtr &model_descriptors,
     Search corr_search;
     corr_search.setInputCloud(model_descriptors);
     corr_search.setSearchCloud(scene_descriptors);
-    corr_search.setK(1);
-    corr_search.search(model_scene_corrs);
+//    corr_search.search(model_scene_corrs);
+    corr_search.bruteForce(model_scene_corrs);
 
-
+//    pcl::KdTreeFLANN<pcl::SHOT352> match_search;
+//    match_search.setInputCloud (model_descriptors);
+//    auto rep = match_search.point_representation_;
+//    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+//    //  For each scene keypoint descriptor, find nearest neighbor into the model keypoints descriptor cloud and add it to the correspondences vector.
+//    for (size_t i = 0; i < scene_descriptors->size (); ++i)
+//    {
+//        std::vector<int> neigh_indices (1);
+//        std::vector<float> neigh_sqr_dists (1);
+//        if (!pcl_isfinite (scene_descriptors->at (i).descriptor[0])) //skipping NaNs
+//        {
+//            continue;
+//        }
+//        int found_neighs = match_search.nearestKSearch (scene_descriptors->at (i), 1, neigh_indices, neigh_sqr_dists);
+//        if(found_neighs == 1 && neigh_sqr_dists[0] < 0.25f) //  add match only if the squared descriptor distance is less than 0.25 (SHOT descriptor distances are between 0 and 1 by design)
+//        {
+//            pcl::Correspondence corr (neigh_indices[0], static_cast<int> (i), neigh_sqr_dists[0]);
+//            model_scene_corrs->push_back (corr);
+//        }
+//    }
+//    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+//    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+//    std::cout << "CPU implementation  search takes: " << duration << std::endl;
+//
+    std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
 
 
 }
@@ -179,12 +204,8 @@ void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
 
 
     UniformDownSample filter;
-//
-//
-//    filter.setKeptIndicesPtr(kept_indices);
+
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-//    filter.downSample(model, model_keypoints, grid_indices, array_indices, inv_radius);
-////    filter.randDownSample(model, model_keypoints);
     filter.downSampleAtomic(model, inv_radius, pc_dimension, min_pi);
     filter.display(model, model_keypoints);
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
@@ -263,10 +284,11 @@ void display(const pcl::PointCloud<PointType>::ConstPtr &model,
 
 
     if (showCorresp){
-        iter++;
+
         for (size_t i = 0; i < rototranslations.size (); ++i) {
-            if (clustered_corrs[i].size() < 10 )
-                continue;
+//            std::cout << clustered_corrs[i].size()<< ", iter" << iter << std::endl;
+//            if (clustered_corrs[i].size() < 10 )
+//                continue;
             pcl::PointCloud<PointType>::Ptr rotated_model (new pcl::PointCloud<PointType> ());
             pcl::transformPointCloud (*model, *rotated_model, rototranslations[i]);
 
@@ -284,9 +306,10 @@ void display(const pcl::PointCloud<PointType>::ConstPtr &model,
                 ss_line << "correspondence_line" << i << "_" << j;
                 const PointType& model_point = model_keypoints->at (clustered_corrs[i][j].index_query);
                 const PointType& scene_point = scene_keypoints->at (clustered_corrs[i][j].index_match);
-
-                viewer->addLine<PointType, PointType> (model_point, scene_point, 0, 255, 0, ss_line.str ());
+                if (iter == 0)
+                    viewer->addLine<PointType, PointType> (model_point, scene_point, 0, 255, 0, ss_line.str ());
             }
+            iter++;
         }
     }else{
         if (toggled_corresp){
