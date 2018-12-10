@@ -4,13 +4,13 @@
 
 #include "main.hpp"
 
-
-
 using namespace std;
 
-#define VERBOSE 1
+#define VERBOSE 0
 #define DISPLAY 1
 #define SHIFT_MODEL 1
+
+const float PI = 3.141592653589;
 
 int main(int argc, char* argv[]){
     if (argc < 3){
@@ -48,8 +48,8 @@ int main(int argc, char* argv[]){
 #if DISPLAY
     viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer> (new pcl::visualization::PCLVisualizer ("3D Viewer"));
     viewer->setBackgroundColor(0, 0, 0);
-    viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
-    viewer->registerMouseCallback(mouseCallback, (void*)viewer.get());
+//    viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
+//    viewer->registerMouseCallback(mouseCallback, (void*)viewer.get());
     pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
     viewer->addPointCloud(model, rgb, "model");
     rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
@@ -77,31 +77,47 @@ int main(int argc, char* argv[]){
 #endif
 
 
-    detect(model_descriptors, scene, scene_keypoints, scene_normals, scene_descriptors, model_scene_corrs);
-
-#if VERBOSE
-    std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
-#endif
-    // using pcl's geometric consistency grouping
-    std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f> > rototranslations;
-    std::vector<pcl::Correspondences> clustered_corrs;
-
-    pcl::GeometricConsistencyGrouping<PointType, PointType> gc_clusterer;
-    gc_clusterer.setGCSize (0.01);
-    gc_clusterer.setGCThreshold (5);
-
-    gc_clusterer.setInputCloud (model_keypoints);
-    gc_clusterer.setSceneCloud (scene_keypoints);
-    gc_clusterer.setModelSceneCorrespondences (model_scene_corrs);
-
-    gc_clusterer.recognize (rototranslations, clustered_corrs);
-
-    std::cout << rototranslations.size() << std::endl;
-
 #if DISPLAY
     while (!viewer->wasStopped ()) {
+        viewer->removeAllShapes();
+        Eigen::Matrix4f randomRotranslation = Eigen::Matrix4f::Zero();
+        Eigen::Matrix3f rand_rotation;
+        rand_rotation << cos(PI/20),0,sin(PI/20), 0, 1, 0, -sin(PI/20), 0, cos(PI/20);
+        randomRotranslation.block<3,3>(0, 0) = rand_rotation;
+        pcl::transformPointCloud (*scene, *scene, randomRotranslation);
+        pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(scene);
+        viewer->updatePointCloud(scene, rgb, "scene");
+//        scene_keypoints->clear();
+//        scene_normals->clear();
+//        scene_descriptors->clear();
+        model_scene_corrs->clear();
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        detect(model_descriptors, scene, scene_keypoints, scene_normals, scene_descriptors, model_scene_corrs);
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+        std::cout << "detect takes: " << duration << std::endl;
+
+#if VERBOSE
+        std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
+#endif
+        // using pcl's geometric consistency grouping
+        std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f> > rototranslations;
+        std::vector<pcl::Correspondences> clustered_corrs;
+
+        pcl::GeometricConsistencyGrouping<PointType, PointType> gc_clusterer;
+        gc_clusterer.setGCSize (0.01);
+        gc_clusterer.setGCThreshold (5);
+
+        gc_clusterer.setInputCloud (model_keypoints);
+        gc_clusterer.setSceneCloud (scene_keypoints);
+        gc_clusterer.setModelSceneCorrespondences (model_scene_corrs);
+
+        gc_clusterer.recognize (rototranslations, clustered_corrs);
+
+        std::cout << rototranslations.size() << std::endl;
         display(model, model_keypoints, scene, scene_keypoints,
                 scene_normals, model_scene_corrs, rototranslations, clustered_corrs);
+
         viewer->spinOnce ();
     }
 #endif
@@ -179,7 +195,7 @@ void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
 
     //compute the common characters for the whole background
     unsigned int N = model->points.size();
-    std::cout << "Num of pts is " << N << std::endl;
+
     float grid_res =  N > 300000? 0.03f:0.01f;
     IndicesPtr grid_indices(new std::vector<int>(N));
     IndicesPtr array_indices(new std::vector<int>(N));
@@ -195,22 +211,24 @@ void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
     IndicesConstPtr cell_start_indices = grid.getCellStart();
     IndicesConstPtr cell_end_indices = grid.getCellEnd();
 
+#if VERBOSE
+    std::cout << "Num of pts is " << N << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "Min is " << min_pi << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "pc_dimension is " << pc_dimension << std::endl;
     std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "The inverse radius is " << inv_radius << std::endl;
-
+#endif
 
     UniformDownSample filter;
 
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+//    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     filter.downSampleAtomic(model, inv_radius, pc_dimension, min_pi);
     filter.display(model, model_keypoints);
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
+//    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+//    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+//    std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
     IndicesConstPtr kept_indices = filter.getKeptIndice();
 
 //    SHOT352 descrip_shot;
@@ -223,36 +241,22 @@ void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
 //    descrip_shot.compute(*model_descriptors, inv_radius, pc_dimension, min_pi);
 
     //descriptors
-    t1 = std::chrono::high_resolution_clock::now();
+//    t1 = std::chrono::high_resolution_clock::now();
     pcl::SHOTEstimationOMP<PointType, pcl::Normal, pcl::SHOT352> descr_est;
     descr_est.setRadiusSearch (0.02f);
     descr_est.setInputCloud (model_keypoints);
     descr_est.setInputNormals (model_normals);
     descr_est.setSearchSurface (model);
     descr_est.compute (*model_descriptors);
-    t2 = std::chrono::high_resolution_clock::now();
-    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "local reference calculation takes: " << duration << std::endl;
+//    t2 = std::chrono::high_resolution_clock::now();
+//    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+//    std::cout << "local reference calculation takes: " << duration << std::endl;
 
 
 
 
 }
 
-
-
-void keyCallback(const pcl::visualization::KeyboardEvent & event, void *viewer_void){
-    boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer = *static_cast<boost::shared_ptr<pcl::visualization::PCLVisualizer> *> (viewer_void);
-    if (event.getKeySym () == "k" && event.keyDown ())
-    {
-        std::cout << "k was pressed => toggle key points" << std::endl;
-
-        showKeyPoints = !showKeyPoints;
-    }
-}
-void mouseCallback(const pcl::visualization::MouseEvent &event, void *viewer_void){
-
-}
 
 void display(const pcl::PointCloud<PointType>::ConstPtr &model,
              const pcl::PointCloud<PointType >::ConstPtr &model_keypoints,
@@ -287,8 +291,8 @@ void display(const pcl::PointCloud<PointType>::ConstPtr &model,
 
         for (size_t i = 0; i < rototranslations.size (); ++i) {
 //            std::cout << clustered_corrs[i].size()<< ", iter" << iter << std::endl;
-//            if (clustered_corrs[i].size() < 10 )
-//                continue;
+            if (clustered_corrs[i].size() < 10 )
+                continue;
             pcl::PointCloud<PointType>::Ptr rotated_model (new pcl::PointCloud<PointType> ());
             pcl::transformPointCloud (*model, *rotated_model, rototranslations[i]);
 
@@ -306,11 +310,11 @@ void display(const pcl::PointCloud<PointType>::ConstPtr &model,
                 ss_line << "correspondence_line" << i << "_" << j;
                 const PointType& model_point = model_keypoints->at (clustered_corrs[i][j].index_query);
                 const PointType& scene_point = scene_keypoints->at (clustered_corrs[i][j].index_match);
-                if (iter == 0)
-                    viewer->addLine<PointType, PointType> (model_point, scene_point, 0, 255, 0, ss_line.str ());
+                viewer->addLine<PointType, PointType> (model_point, scene_point, 0, 255, 0, ss_line.str ());
             }
-            iter++;
+
         }
+        iter++;
     }else{
         if (toggled_corresp){
             viewer->removeAllShapes();

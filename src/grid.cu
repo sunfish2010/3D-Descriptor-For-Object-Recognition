@@ -110,9 +110,9 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     if (!input || radius <= 0 || !grid_indices || !array_indices){
         std::cerr <<  "ComputeSceneProperty input not set correctly " << std::endl;
     }
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    float miliseconds = 0;
+//    cudaEventCreate(&start);
+//    cudaEventCreate(&stop);
+//    float miliseconds = 0;
     PointType *dev_pc=NULL;
     int *dev_grid_indices=NULL;
     int *dev_array_indices=NULL;
@@ -120,15 +120,15 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     N = (int)(*input).size();
     dim3 fullBlockPerGrid_points (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
 
-    cudaEventRecord(start);
+//    cudaEventRecord(start);
     cudaMalloc((void**) &dev_pc, N * sizeof(PointType));
     checkCUDAError("cudaMalloc pc error");
     cudaMemcpy(dev_pc, &(*input).points[0], N * sizeof(PointType), cudaMemcpyHostToDevice);
     checkCUDAError("cudaMemcpy pc");
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&miliseconds, start, stop);
-    std::cout << "allocate and memcpy pt takes: " << miliseconds << std::endl;
+//    cudaEventRecord(stop);
+//    cudaEventSynchronize(stop);
+//    cudaEventElapsedTime(&miliseconds, start, stop);
+//    std::cout << "allocate and memcpy pt takes: " << miliseconds << std::endl;
     // calculate min max for the pc
 
     // after timing, cpu much faster so just use cpu version
@@ -168,7 +168,7 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     pc_dimension = max_pi - min_pi + Eigen::Vector4i::Ones();
     pc_dimension[3] = 0;
 
-    cudaEventRecord(start);
+//    cudaEventRecord(start);
     cudaMalloc((void**)&dev_grid_indices, N * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
     cudaMalloc((void**)&dev_array_indices, N * sizeof(int));
@@ -178,10 +178,10 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
             inv_radius, dev_pc, dev_array_indices, dev_grid_indices);
     checkCUDAError("kernComputeIndices Failed");
 
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&miliseconds, start, stop);
-    std::cout << "calculating array & grid indices takes  " <<miliseconds << std::endl;
+//    cudaEventRecord(stop);
+//    cudaEventSynchronize(stop);
+//    cudaEventElapsedTime(&miliseconds, start, stop);
+//    std::cout << "calculating array & grid indices takes  " <<miliseconds << std::endl;
 
 
 

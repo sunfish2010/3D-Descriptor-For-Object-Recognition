@@ -718,9 +718,9 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
 //    lrf.setKeptIndices(_kept_indices);
 //    lrf.compute(local_ref, inv_radius, pc_dimension, min_pi);
 
-    std::cout << "-------------------calculating descriptor shot------------------------" << std::endl;
+//    std::cout << "-------------------calculating descriptor shot------------------------" << std::endl;
 
-    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+//    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     std::vector<int> indices;
     for (int i =0; i < _input->points.size();i++){
@@ -736,9 +736,9 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
     lrf_estimator.setIndices (indices_);
     lrf_estimator.compute (*default_frames);
 
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << "local reference calculation takes: " << duration << std::endl;
+//    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+//    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+//    std::cout << "local reference calculation takes: " << duration << std::endl;
 
     int N = static_cast<int> (_input->points.size());
     dim3 numThreadsPerBlock = (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
@@ -827,7 +827,7 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
         }
     }
 
-    std::cout << "descriptor calculation done" << std::endl;
+//    std::cout << "descriptor calculation done" << std::endl;
 
     cudaFree(dev_kept_indices);
     cudaFree(dev_lrf);

@@ -321,11 +321,11 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
     checkCUDAError("cudaMemcpy pc");
 
     // computation begin
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    float miliseconds = 0;
-
-    cudaEventRecord(start);
+//    cudaEventCreate(&start);
+//    cudaEventCreate(&stop);
+//    float miliseconds = 0;
+//
+//    cudaEventRecord(start);
 
     cudaMalloc((void**)&dev_grid_indices, N * sizeof(int));
     checkCUDAError("cudaMalloc dev_indices error");
@@ -351,7 +351,7 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
 
     kernDownSample<<< fullBlockPerGrid_points, blockSize>>>(N, dev_dist, dev_min_dist, dev_grid_indices,dev_kept_indices);
     checkCUDAError("kernDownSample Failed");
-    std::cout << "KernDOwnsample finished " << std::endl;
+//    std::cout << "KernDOwnsample finished " << std::endl;
     try{
         int * new_end = thrust::partition(thrust::device, dev_kept_indices, dev_kept_indices + _grid_count_max, isFirst());
         N_new = static_cast<int>(new_end - dev_kept_indices);
@@ -362,12 +362,12 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
     }
 
 
-    cudaEventRecord(stop);
-    cudaEventSynchronize(stop);
-    cudaEventElapsedTime(&miliseconds, start, stop);
-    std::cout << "uniform subsampling takes: " << miliseconds << std::endl;
-
-    std::cout << "---------Saving results useful for later computation ----------------------------------" << std::endl;
+//    cudaEventRecord(stop);
+//    cudaEventSynchronize(stop);
+//    cudaEventElapsedTime(&miliseconds, start, stop);
+//    std::cout << "uniform subsampling takes: " << miliseconds << std::endl;
+//
+//    std::cout << "---------Saving results useful for later computation ----------------------------------" << std::endl;
     kept_indices.resize(N_new);
     cudaMemcpy(&kept_indices[0], dev_kept_indices, sizeof(int) * N_new, cudaMemcpyDeviceToHost);
     checkCUDAError("memcpy kept_indices error");

@@ -31,8 +31,6 @@ int iter = 0;
 
 boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer;
 
-void keyCallback(const pcl::visualization::KeyboardEvent & event, void *viewer_void);
-void mouseCallback(const pcl::visualization::MouseEvent &event, void *viewer_void);
 
 void display(const pcl::PointCloud<PointType>::ConstPtr &model,
              const pcl::PointCloud<PointType >::ConstPtr &model_keypoints,

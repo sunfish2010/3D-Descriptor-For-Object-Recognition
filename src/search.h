@@ -96,7 +96,7 @@ private:
 
     int _N_input;
     int _N_search;
-    KDTree _kdtree;
+//    KDTree _kdtree;
 
 
 };
