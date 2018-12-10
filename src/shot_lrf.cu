@@ -11,10 +11,10 @@
  * \author Samuele Salti, Federico Tombari
  *
  *
- * Used mostly PCL's Implementation with own modification to run in CUDA
+ * Implemented based on PCL & Original Paper's Author's implementation, modified to run on CUDA
  *
  *
- */
+ **/
 
 #include "shot_lrf.h"
 #include <Eigen/Eigenvalues>

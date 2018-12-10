@@ -40,11 +40,14 @@ int main(int argc, char* argv[]){
     }
 
 #if SHIFT_MODEL
-    pcl::transformPointCloud (*model, *model, Eigen::Vector3f (-1,0,0), Eigen::Quaternionf (1, 0, 0, 0));
-
+    pcl::PointCloud<PointType>::Ptr model_shifted (new pcl::PointCloud<PointType>);
+    pcl::transformPointCloud (*model, *model_shifted, Eigen::Vector3f (-1,0,0), Eigen::Quaternionf (1, 0, 0, 0));
+    pcl::copyPointCloud(*model_shifted,*model);
 #endif
 
 #if DISPLAY
+    viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer> (new pcl::visualization::PCLVisualizer ("3D Viewer"));
+    viewer->setBackgroundColor(0, 0, 0);
     pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
     viewer->addPointCloud(model, rgb, "model");
     rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
@@ -114,8 +117,7 @@ bool init(const pcl::PointCloud<PointType>::ConstPtr &model,
     detectionInit(model, model_keypoints, model_normals, model_descriptors);
 
 #if DISPLAY
-    viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer> (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    viewer->setBackgroundColor(0, 0, 0);
+
     viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
     viewer->registerMouseCallback(mouseCallback, (void*)viewer.get());
 #endif
@@ -184,12 +186,14 @@ void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
     IndicesPtr grid_indices(new std::vector<int>(N));
     IndicesPtr array_indices(new std::vector<int>(N));
 //    std::vector<int> kept_indices;
+    Eigen::Vector4i min_pi;
+
+    Eigen::Vector4f inv_radius;
+    Eigen::Vector4i pc_dimension;
+
     Grid grid;
     grid.setRadius(grid_res);
-    grid.computeSceneProperty(model, grid_indices, array_indices);
-    Eigen::Vector4i pc_dimension = grid.getDimension();
-    Eigen::Vector4f inv_radius = grid.getInverseRadius();
-    Eigen::Vector4i min_pi = grid.getSceneMin();
+    grid.computeSceneProperty(model, grid_indices, array_indices, inv_radius, pc_dimension, min_pi);
 
     std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "Min is " << min_pi << std::endl;

@@ -14,7 +14,7 @@
  * \author Samuele Salti, Federico Tombari
  *
  *
- * Used mostly PCL's Implementation with own modification to run in CUDA
+ * Implemented based on PCL & Original Paper's Author's implementation, modified to run on CUDA
  *
  *
  */
@@ -498,7 +498,7 @@ __global__ void computeSHOT(int N, int n, const PointType *surface, const float 
                     if (fabs (zInFeatRef) < 1E-30)
                         zInFeatRef = 0;
 
-                    unsigned char bit4 = ((yInFeatRef > 0) || ((yInFeatRef == 0.0) && (xInFeatRef < 0))) ? 1 : 0;
+                    unsigned char bit4 = static_cast<unsigned char>(((yInFeatRef > 0) || ((yInFeatRef == 0.0) && (xInFeatRef < 0))) ? 1 : 0);
                     unsigned char bit3 = static_cast<unsigned char> (((xInFeatRef > 0) ||
                             ((xInFeatRef == 0.0) && (yInFeatRef > 0))) == (!bit4));
 
@@ -691,8 +691,11 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
 //    lrf.setSurface(_surface);
 //    lrf.setNormals(_normals);
 //    lrf.setKeptIndices(_kept_indices);
-//
 //    lrf.compute(local_ref, inv_radius, pc_dimension, min_pi);
+
+    std::cout << "-------------------calculating descriptor shot------------------------" << std::endl;
+
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
     std::vector<int> indices;
     for (int i =0; i < _input->points.size();i++){
@@ -701,14 +704,16 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
     IndicesPtr indices_ = boost::make_shared<std::vector<int>>(indices);
 
     pcl::SHOTLocalReferenceFrameEstimationOMP<PointType> lrf_estimator;
-    pcl::PointCloud<pcl::ReferenceFrame> default_frames;
+    pcl::PointCloud<pcl::ReferenceFrame>::Ptr default_frames(new pcl::PointCloud<pcl::ReferenceFrame>);
     lrf_estimator.setRadiusSearch (_radius);
     lrf_estimator.setInputCloud (_input);
     lrf_estimator.setSearchSurface(_surface);
     lrf_estimator.setIndices (indices_);
+    lrf_estimator.compute (*default_frames);
 
-
-    lrf_estimator.compute (default_frames);
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+    std::cout << "local reference calculation takes: " << duration << std::endl;
 
     int N = static_cast<int> (_input->points.size());
     dim3 numThreadsPerBlock = (static_cast<u_int32_t >((N + blockSize - 1)/blockSize));
@@ -723,7 +728,7 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
     cudaMalloc((void**)&dev_lrf, N * sizeof (pcl::ReferenceFrame));
     checkCUDAError("cuda malloc dev_lrf error");
 
-    cudaMemcpy(dev_lrf, &default_frames.points[0], N * sizeof(pcl::ReferenceFrame), cudaMemcpyHostToDevice);
+    cudaMemcpy(dev_lrf, &default_frames->points[0], N * sizeof(pcl::ReferenceFrame), cudaMemcpyHostToDevice);
     checkCUDAError("cuda Memcpy lrf error");
 
     pcl::Normal *dev_normals = NULL;
@@ -769,9 +774,9 @@ void SHOT352::computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output, const Eig
             for (int j = 0; j < descLength_; ++j)
                 output.points[i].descriptor[j] = shot[offset + j];
             for (int j = 0; j < 3; ++j){
-                output.points[i].rf[j] = default_frames.points[i].x_axis[j];
-                output.points[i].rf[j + 3] = default_frames.points[i].y_axis[j];
-                output.points[i].rf[j + 6] = default_frames.points[i].z_axis[j];
+                output.points[i].rf[j] = default_frames->points[i].x_axis[j];
+                output.points[i].rf[j + 3] = default_frames->points[i].y_axis[j];
+                output.points[i].rf[j + 6] = default_frames->points[i].z_axis[j];
             }
         }
     }

@@ -45,14 +45,14 @@ struct keep {
 
 
 /** \brief compute distance to grid center  **/
-__device__ float kernComputeDist(PointType pos, Eigen::Vector4i ijk){
+__device__ float kernComputeDist(PointType pos,const Eigen::Vector4i& ijk){
     return (pos.x - ijk[0]) * (pos.x - ijk[0]) + (pos.y - ijk[1]) * (pos.y - ijk[1])
            + (pos.z - ijk[2]) * (pos.z - ijk[2]);
 }
 
 
 /** \brief get min max for the point cloud  **/
-__global__ void kernComputeDist(int N, const PointType *pts_in, int *dist, Eigen::Vector4f inv_radius){
+__global__ void kernComputeDist(int N, const PointType *pts_in, int *dist,const Eigen::Vector4f inv_radius){
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if(index < N){
         PointType pt = pts_in[index] ;
@@ -68,7 +68,7 @@ __global__ void kernComputeDist(int N, const PointType *pts_in, int *dist, Eigen
 /** \brief downsampling the point cloud by using global memory for performance improvement
  * **/
 
-__global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eigen::Vector4i grid_min,
+__global__ void kernComputeIndicesDistances(int N, const Eigen::Vector4i grid_res,const Eigen::Vector4i grid_min,
                                             const Eigen::Vector4f inv_radius, PointType *pos, int *grid_indices,
                                             float*min_dist, float*dist){
     int index = threadIdx.x + blockDim.x * blockIdx.x;
@@ -92,7 +92,7 @@ __global__ void kernComputeIndicesDistances(int N, Eigen::Vector4i grid_res, Eig
 /** \brief keep only one pt per grid
  * race condition may happen for pts with same distances, but that's fine
  * **/
-__global__ void kernDownSample(int N, const float *dist, const float *dist_min, int *grid_indices,  int* keep){
+__global__ void kernDownSample(int N, const float *dist, const float *dist_min,const int *grid_indices,  int* keep){
     int index = threadIdx.x + blockIdx.x * blockDim.x;
     if (index < N ){
         int grid_i = grid_indices[index];
@@ -106,7 +106,7 @@ __global__ void kernDownSample(int N, const float *dist, const float *dist_min, 
 
 /** \brief reorder the point cloud
  * **/
-__global__ void kernUniformDownSample(int N, PointType *pts_in, PointType *pts_out, int *indices){
+__global__ void kernUniformDownSample(int N,const PointType *pts_in, PointType *pts_out,const int *indices){
     int index = threadIdx.x + (blockIdx.x * blockDim.x);
     if (index < N){
         pts_out[index] = pts_in[indices[index]];

@@ -86,7 +86,7 @@ __global__ void kernComputeIndices(int N, Eigen::Vector4i grid_res, Eigen::Vecto
 
 /** \brief compute point cloud properties for later use  **/
 void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &input, const IndicesPtr &grid_indices,
-        const IndicesPtr &array_indices) {
+        const IndicesPtr &array_indices, Eigen::Vector4f &inv_radius, Eigen::Vector4i &pc_dimension, Eigen::Vector4i &min_pi) {
     if (!input || radius <= 0 || !grid_indices || !array_indices){
         std::cerr <<  "ComputeSceneProperty input not set correctly " << std::endl;
     }
@@ -139,7 +139,7 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     // device the pc into cells
 
     inv_radius = Eigen::Array4f::Ones()/ (Eigen::Vector4f(radius, radius, radius, 1.0f).array());
-    max_pi = Eigen::Vector4i (static_cast<int>(floor(max_p[0] * inv_radius[0])),
+    Eigen::Vector4i max_pi (static_cast<int>(floor(max_p[0] * inv_radius[0])),
                            static_cast<int>(floor(max_p[1] * inv_radius[1])), static_cast<int>(floor(max_p[2] * inv_radius[2])), 0);
     min_pi = Eigen::Vector4i (static_cast<int>(floor(min_p[0] * inv_radius[0])),
                            static_cast<int>(floor(min_p[1] * inv_radius[1])), static_cast<int>(floor(inv_radius[2] * min_p[2])), 0);
