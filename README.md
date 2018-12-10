@@ -64,7 +64,7 @@ Code Layout
 
 ## Performance Analysis 
 
-You can refer to my final presentation [slides](./slides/565_Final_Project.pdf) for performance analysis. 
+You can refer to my final presentation [slides](./slides/Final%20Presentation.pdf) for performance analysis. 
 
 ## Issues
 I didn't use CUDA for everything algorithm. Not having enough time is of course one reason. However, many other reasons exist. For example, some functions just run faster on CPU due to the GPU memory copy/allocation overhead and/or need of atomic functions.
