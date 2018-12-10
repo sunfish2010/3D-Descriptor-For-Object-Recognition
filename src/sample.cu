@@ -392,6 +392,7 @@ void UniformDownSample::downSampleAtomic(const pcl::PointCloud<PointType >::Cons
 /** \brief store the result back for display
  * **/
 void UniformDownSample::display(const pcl::PointCloud<PointType>::ConstPtr &input, const pcl::PointCloud<PointType>::Ptr &output) {
+    (*output).header = input->header;
     (*output).height = 1;
     (*output).is_dense = true;
     (*output).width = static_cast<uint32_t>(N_new);

@@ -84,9 +84,28 @@ __global__ void kernComputeIndices(int N, Eigen::Vector4i grid_res, Eigen::Vecto
 }
 
 
+/** \brief compute start and end indice of each grid  **/
+__global__ void kernIdentifyCellStartEnd(int N, int *particleGridIndices,
+                                         int *gridCellStartIndices, int *gridCellEndIndices) {
+    int index = threadIdx.x + (blockIdx.x * blockDim.x);
+    if (index < N) {
+        // corner cases
+        if (index == 0) gridCellStartIndices[particleGridIndices[index]] = index;
+        else if (index == N - 1) gridCellEndIndices[particleGridIndices[index]] = index;
+
+        else if (particleGridIndices[index] != particleGridIndices[index + 1]){
+            gridCellEndIndices[particleGridIndices[index]] = index;
+            gridCellStartIndices[particleGridIndices[index + 1]] = index + 1;
+        }
+    }
+
+}
+
+
 /** \brief compute point cloud properties for later use  **/
 void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &input, const IndicesPtr &grid_indices,
-        const IndicesPtr &array_indices, Eigen::Vector4f &inv_radius, Eigen::Vector4i &pc_dimension, Eigen::Vector4i &min_pi) {
+        const IndicesPtr &array_indices, Eigen::Vector4f &inv_radius, Eigen::Vector4i &pc_dimension,
+        Eigen::Vector4i &min_pi,  Eigen::Vector4i &max_pi) {
     if (!input || radius <= 0 || !grid_indices || !array_indices){
         std::cerr <<  "ComputeSceneProperty input not set correctly " << std::endl;
     }
@@ -139,7 +158,7 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     // device the pc into cells
 
     inv_radius = Eigen::Array4f::Ones()/ (Eigen::Vector4f(radius, radius, radius, 1.0f).array());
-    Eigen::Vector4i max_pi (static_cast<int>(floor(max_p[0] * inv_radius[0])),
+    max_pi = Eigen::Vector4i(static_cast<int>(floor(max_p[0] * inv_radius[0])),
                            static_cast<int>(floor(max_p[1] * inv_radius[1])), static_cast<int>(floor(max_p[2] * inv_radius[2])), 0);
     min_pi = Eigen::Vector4i (static_cast<int>(floor(min_p[0] * inv_radius[0])),
                            static_cast<int>(floor(min_p[1] * inv_radius[1])), static_cast<int>(floor(inv_radius[2] * min_p[2])), 0);
@@ -164,16 +183,48 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     std::cout << "calculating array & grid indices takes  " <<miliseconds << std::endl;
 
 
+
     // copy the results if needed.
     if (grid_indices){
         cudaMemcpy(&(*grid_indices)[0], dev_grid_indices, N * sizeof(int), cudaMemcpyDeviceToHost);
         checkCUDAError("kernCopy grid indices failed");
     }
 
+    thrust::device_ptr<int> dev_thrust_gridIndices =  thrust::device_ptr<int>(dev_grid_indices);
+    thrust::device_ptr<int> dev_thrust_arrayIndices = thrust::device_ptr<int>(dev_array_indices);
+
+    // sort inplace
+    thrust::sort_by_key(dev_thrust_gridIndices, dev_thrust_gridIndices + N, dev_thrust_arrayIndices);
+    checkCUDAError("cuda sort error");
+
     if (array_indices){
         cudaMemcpy(&(*array_indices)[0], dev_array_indices, N * sizeof(int), cudaMemcpyDeviceToHost);
         checkCUDAError("kernCopy array indices failed");
     }
+
+    int _grid_count = pc_dimension[0] * pc_dimension[1] * pc_dimension[2];
+
+    int *dev_gridCellStartIndices = NULL;
+    cudaMalloc((void**)&dev_gridCellStartIndices, _grid_count * sizeof(int));
+    checkCUDAError("cudaMalloc dev_gridCellStartIndices failed");
+    cudaMemset(dev_gridCellStartIndices, -1, _grid_count * sizeof(int) );
+
+    int *dev_gridCellEndIndices = NULL;
+    cudaMalloc((void**)&dev_gridCellEndIndices, _grid_count * sizeof(int));
+    checkCUDAError("cudaMalloc dev_gridCellStartIndices failed");
+
+    kernIdentifyCellStartEnd <<<fullBlockPerGrid_points, blockSize >>> (N, dev_grid_indices,
+            dev_gridCellStartIndices, dev_gridCellEndIndices);
+    checkCUDAError("kernIdentifyCellStartEnd Failed");
+
+    cellStartIndices.resize(_grid_count);
+    cudaMemcpy(&cellStartIndices[0], dev_gridCellStartIndices, sizeof(int) * _grid_count, cudaMemcpyDeviceToHost);
+    checkCUDAError("cell start");
+    cellEndIndices.resize(_grid_count);
+    cudaMemcpy(&cellEndIndices[0], dev_gridCellEndIndices, sizeof(int) * _grid_count, cudaMemcpyDeviceToHost);
+    checkCUDAError("cell end");
+
+
 
 //    checkCUDAError("cuda free error");
     cudaFree(dev_array_indices);
@@ -182,3 +233,5 @@ void Grid::computeSceneProperty(const pcl::PointCloud<PointType>::ConstPtr &inpu
     checkCUDAError("cuda free error");
 
 }
+
+

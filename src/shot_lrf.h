@@ -16,6 +16,7 @@ public:
     using Descriptor<pcl::ReferenceFrame>::_input;
     using Descriptor<pcl::ReferenceFrame>::_surface;
     using Descriptor<pcl::ReferenceFrame>::_kept_indices;
+    using Descriptor<pcl::ReferenceFrame>::_array_indices;
 
     SHOT_LRF()=default;
     ~SHOT_LRF()override= default;
@@ -23,7 +24,8 @@ public:
 protected:
 
     void computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output,  const Eigen::Vector4f &inv_radius,
-                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) override;
+       const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi, const Eigen::Vector4i &max_pi,
+       const IndicesConstPtr &grid_start_indices, const IndicesConstPtr &grid_end_indices) override;
 
 
 private:

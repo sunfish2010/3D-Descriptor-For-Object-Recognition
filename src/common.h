@@ -21,3 +21,11 @@ typedef pcl::PointXYZRGB PointType;
 typedef boost::shared_ptr<std::vector<int>> IndicesPtr;
 typedef boost::shared_ptr<const std::vector<int>> IndicesConstPtr;
 const int blockSize = 256;
+
+#ifndef imax
+#define imax( a, b ) ( ((a) > (b)) ? (a) : (b) )
+#endif
+
+#ifndef imin
+#define imin( a, b ) ( ((a) < (b)) ? (a) : (b) )
+#endif

@@ -9,7 +9,7 @@
 using namespace std;
 
 #define VERBOSE 1
-#define DISPLAY 1
+#define DISPLAY 0
 #define SHIFT_MODEL 1
 
 int main(int argc, char* argv[]){
@@ -48,6 +48,8 @@ int main(int argc, char* argv[]){
 #if DISPLAY
     viewer = boost::shared_ptr<pcl::visualization::PCLVisualizer> (new pcl::visualization::PCLVisualizer ("3D Viewer"));
     viewer->setBackgroundColor(0, 0, 0);
+    viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
+    viewer->registerMouseCallback(mouseCallback, (void*)viewer.get());
     pcl::visualization::PointCloudColorHandlerRGBField<PointType> rgb(model);
     viewer->addPointCloud(model, rgb, "model");
     rgb = pcl::visualization::PointCloudColorHandlerRGBField<PointType>(scene);
@@ -64,63 +66,7 @@ int main(int argc, char* argv[]){
     pcl::PointCloud<PointType>::Ptr scene_keypoints (new pcl::PointCloud<PointType>);
     pcl::CorrespondencesPtr model_scene_corrs (new pcl::Correspondences ());
 
-    if (init(model, model_keypoints, model_normals, model_descriptors)){
-
-        detect(model_descriptors, scene, scene_keypoints, scene_normals, scene_descriptors, model_scene_corrs);
-
-#if VERBOSE
-        std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
-#endif
-        // using pcl's geometric consistency grouping
-        std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f> > rototranslations;
-        std::vector<pcl::Correspondences> clustered_corrs;
-
-        pcl::GeometricConsistencyGrouping<PointType, PointType> gc_clusterer;
-        gc_clusterer.setGCSize (0.01);
-        gc_clusterer.setGCThreshold (5);
-
-        gc_clusterer.setInputCloud (model_keypoints);
-        gc_clusterer.setSceneCloud (scene_keypoints);
-        gc_clusterer.setModelSceneCorrespondences (model_scene_corrs);
-
-        gc_clusterer.recognize (rototranslations, clustered_corrs);
-
-
-#if DISPLAY
-        while (!viewer->wasStopped ()) {
-            display(model, model_keypoints, scene, scene_keypoints,
-                    scene_normals, model_scene_corrs, rototranslations, clustered_corrs);
-            viewer->spinOnce ();
-        }
-#endif
-        return 0;
-    }else{
-        return -1;
-    }
-
-}
-
-
-bool init(const pcl::PointCloud<PointType>::ConstPtr &model,
-          const pcl::PointCloud<PointType >::Ptr &model_keypoints,
-          const pcl::PointCloud<pcl::Normal>::Ptr &model_normals,
-          const pcl::PointCloud<pcl::SHOT352>::Ptr &model_descriptors){
-
-    cudaDeviceProp deviceProp;
-    int device_count = 0;
-    cudaGetDeviceCount(&device_count);
-    if (device_count < 0){
-        cout << "Error: GPU device not found " << endl;
-        return false;
-    }
-
     detectionInit(model, model_keypoints, model_normals, model_descriptors);
-
-#if DISPLAY
-
-    viewer->registerKeyboardCallback(keyCallback, (void*)viewer.get());
-    viewer->registerMouseCallback(mouseCallback, (void*)viewer.get());
-#endif
 
 #if VERBOSE
 
@@ -130,10 +76,37 @@ bool init(const pcl::PointCloud<PointType>::ConstPtr &model,
 
 #endif
 
-    return true;
+
+    detect(model_descriptors, scene, scene_keypoints, scene_normals, scene_descriptors, model_scene_corrs);
+
+#if VERBOSE
+    std::cout << "Correspondences found: " << model_scene_corrs->size () << std::endl;
+#endif
+    // using pcl's geometric consistency grouping
+    std::vector<Eigen::Matrix4f, Eigen::aligned_allocator<Eigen::Matrix4f> > rototranslations;
+    std::vector<pcl::Correspondences> clustered_corrs;
+
+    pcl::GeometricConsistencyGrouping<PointType, PointType> gc_clusterer;
+    gc_clusterer.setGCSize (0.01);
+    gc_clusterer.setGCThreshold (5);
+
+    gc_clusterer.setInputCloud (model_keypoints);
+    gc_clusterer.setSceneCloud (scene_keypoints);
+    gc_clusterer.setModelSceneCorrespondences (model_scene_corrs);
+
+    gc_clusterer.recognize (rototranslations, clustered_corrs);
+
+
+#if DISPLAY
+    while (!viewer->wasStopped ()) {
+        display(model, model_keypoints, scene, scene_keypoints,
+                scene_normals, model_scene_corrs, rototranslations, clustered_corrs);
+        viewer->spinOnce ();
+    }
+#endif
+
+
 }
-
-
 
 
 void detectionInit(const pcl::PointCloud<PointType>::ConstPtr &model,
@@ -187,13 +160,15 @@ void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
     IndicesPtr array_indices(new std::vector<int>(N));
 //    std::vector<int> kept_indices;
     Eigen::Vector4i min_pi;
-
+    Eigen::Vector4i max_pi;
     Eigen::Vector4f inv_radius;
     Eigen::Vector4i pc_dimension;
 
     Grid grid;
     grid.setRadius(grid_res);
-    grid.computeSceneProperty(model, grid_indices, array_indices, inv_radius, pc_dimension, min_pi);
+    grid.computeSceneProperty(model, grid_indices, array_indices, inv_radius, pc_dimension, min_pi, max_pi);
+    IndicesConstPtr cell_start_indices = grid.getCellStart();
+    IndicesConstPtr cell_end_indices = grid.getCellEnd();
 
     std::cout << "---------------------------------------------------------" << std::endl;
     std::cout << "Min is " << min_pi << std::endl;
@@ -215,17 +190,31 @@ void computeDescriptor(const pcl::PointCloud<PointType>::ConstPtr &model,
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << "GPU implementation  downsampling takes: " << duration << std::endl;
-
     IndicesConstPtr kept_indices = filter.getKeptIndice();
-    SHOT352 descrip_shot;
-    descrip_shot.setRadius(0.02);
-    descrip_shot.setNormals(model_normals);
-    descrip_shot.setInputCloud(model_keypoints);
 
-    descrip_shot.setKeptIndices(kept_indices);
+//    SHOT352 descrip_shot;
+//    descrip_shot.setRadius(0.02);
+//    descrip_shot.setNormals(model_normals);
+//    descrip_shot.setInputCloud(model_keypoints);
+//    descrip_shot.setKeptIndices(kept_indices);
 //    descrip_shot.setGridIndices(grid_indices);
-    descrip_shot.setSurface(model);
-    descrip_shot.compute(*model_descriptors, inv_radius, pc_dimension, min_pi);
+//    descrip_shot.setSurface(model);
+//    descrip_shot.compute(*model_descriptors, inv_radius, pc_dimension, min_pi);
+
+    //descriptors
+    t1 = std::chrono::high_resolution_clock::now();
+    pcl::SHOTEstimationOMP<PointType, pcl::Normal, pcl::SHOT352> descr_est;
+    descr_est.setRadiusSearch (0.02f);
+    descr_est.setInputCloud (model_keypoints);
+    descr_est.setInputNormals (model_normals);
+    descr_est.setSearchSurface (model);
+    descr_est.compute (*model_descriptors);
+    t2 = std::chrono::high_resolution_clock::now();
+    duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
+    std::cout << "local reference calculation takes: " << duration << std::endl;
+
+
+
 
 }
 

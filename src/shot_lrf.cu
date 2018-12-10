@@ -147,7 +147,8 @@ __global__ void kernComputeLF(int N, int n, const PointType * surface,const int*
 
 
 void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, const Eigen::Vector4f &inv_radius,
-                                 const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) {
+                                 const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi,const Eigen::Vector4i &max_pi,
+                                 const IndicesConstPtr &grid_start_indices, const IndicesConstPtr &grid_end_indices) {
     _N_features = static_cast<int>(_input->points.size());
     _N_surface = static_cast<int>(_surface->points.size());
     if (!_N_surface || !_N_features){
@@ -173,6 +174,26 @@ void SHOT_LRF::computeDescriptor(pcl::PointCloud<pcl::ReferenceFrame> &output, c
     PointType *dev_pos_surface = NULL;
     int *dev_num_neighbors = NULL;
     Eigen::Matrix3d* dev_cov = NULL;
+    int *dev_gridCellStartIndices = NULL;
+    int *dev_gridCellEndIndices = NULL;
+//    int *dev_grid_indices = NULL;
+
+    int _grid_count_max = pc_dimension[0] + pc_dimension[0] * pc_dimension[1] + pc_dimension[0] * pc_dimension[1] * pc_dimension[2];
+
+    cudaMalloc((void**)&dev_gridCellStartIndices, _grid_count_max * sizeof(int));
+    checkCUDAError("cudaMalloc dev_gridCellStartIndices failed");
+    cudaMemcpy(dev_gridCellStartIndices, &(*grid_start_indices)[0], sizeof(int) * _grid_count_max, cudaMemcpyHostToDevice);
+    checkCUDAError("cudaMmcpy dev_gridCellStartIndices failed");
+
+    cudaMalloc((void**)&dev_gridCellEndIndices, _grid_count_max * sizeof(int));
+    checkCUDAError("cudaMalloc dev_gridCellEndIndices failed");
+    cudaMemcpy(dev_gridCellEndIndices, &(*grid_end_indices)[0], sizeof(int) * _grid_count_max, cudaMemcpyHostToDevice);
+    checkCUDAError("cudaMemcpy dev_gridCellEndIndices failed");
+
+//    cudaMalloc((void**)&dev_grid_indices, _N_surface * sizeof(int));
+//    checkCUDAError("dev_grid malloc");
+//    cudaMemcpy(dev_grid_indices, &(*_grid_indices)[0], _N_surface * sizeof(int), cudaMemcpyHostToDevice);
+//    checkCUDAError("dev_grid memcpy");
 
     cudaMalloc((void**)&dev_features_indices, _N_features * sizeof(int));
     checkCUDAError("mallod dev_features_indices error");

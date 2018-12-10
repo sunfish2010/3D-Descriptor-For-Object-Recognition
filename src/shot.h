@@ -15,6 +15,8 @@ public:
     using Descriptor<pcl::SHOT352>::_input;
     using Descriptor<pcl::SHOT352>::_surface;
     using Descriptor<pcl::SHOT352>::_kept_indices;
+    using Descriptor<pcl::SHOT352>::_array_indices;
+
 
     explicit SHOT352(int nr_shape_bins = 10, int nr_color_bins = 30) :Descriptor<pcl::SHOT352>(0.01),
                                   nr_shape_bins_ (nr_shape_bins),nr_color_bins_(nr_color_bins),
@@ -26,6 +28,7 @@ public:
     ~SHOT352()override {
         _input.reset();
         _kept_indices.reset();
+        _array_indices.reset();
         _normals.reset();
         _surface.reset();
     }
@@ -34,7 +37,8 @@ public:
 protected:
 
     void computeDescriptor(pcl::PointCloud<pcl::SHOT352> &output,  const Eigen::Vector4f &inv_radius,
-                           const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi) override;
+                       const Eigen::Vector4i &pc_dimension, const Eigen::Vector4i &min_pi, const Eigen::Vector4i &max_pi,
+                           const IndicesConstPtr &grid_start_indices, const IndicesConstPtr &grid_end_indices) override;
 
 
     /** \brief size of color & shape histogram  */
